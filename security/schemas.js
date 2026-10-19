@@ -41,3 +41,7 @@ export const backupSchema=z.object({birds:z.array(z.number().int().min(0).max(10
 export const csrfSchema=z.string().regex(/^[A-Za-z0-9_-]{43}$/);
 export const sessionTokenSchema=csrfSchema;
 export const hashSchema=z.string().regex(/^[a-f0-9]{64}$/);
+
+// User administration accepts explicit fields only. New passwords require a long passphrase.
+export const userCreateSchema=z.object({username:loginSchema.shape.username,name:text(80).refine(s=>s.trim().length>0),role:z.enum(['admin','operator']),password:z.string().min(15).max(128)}).strict();
+export const userUpdateSchema=z.object({username:loginSchema.shape.username,active:z.boolean().optional(),role:z.enum(['admin','operator']).optional(),password:z.string().min(15).max(128).optional()}).strict();

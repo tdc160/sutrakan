@@ -1,9 +1,10 @@
+import {userCreateSchema,userUpdateSchema} from '../security/schemas.js';
 import {loginSchema,emptySchema,recordSchema,csrfSchema,sessionTokenSchema} from '../security/schemas.js';
 import {HttpError,json,securityHeaders,validateHeaders,sameOrigin,readJSON,limited,verifyPassword,digest,randomToken,readCookie,sessionCookie} from './security.js';
 export {AdminSessions} from './sessions.js';
 const TTL=3600;
 async function sessionCall(env,path,data){if(!env.ADMIN_SESSIONS?.idFromName)throw new HttpError(503);const stub=env.ADMIN_SESSIONS.get(env.ADMIN_SESSIONS.idFromName('admin-sessions'));return stub.fetch(new Request('https://internal'+path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)}))}
-async function currentSession(request,env){const token=readCookie(request);if(!sessionTokenSchema.safeParse(token).success)throw new HttpError(401);const key=await digest(token);const response=await sessionCall(env,'/read',{key});if(response.status===404)throw new HttpError(401);if(!response.ok)throw new HttpError(503);const session=await response.json();if(session.expiresAt<=Date.now()||session.username!==env.ADMIN_USERNAME)throw new HttpError(401);return {...session,key}}
+async function currentSession(request,env){const token=readCookie(request);if(!sessionTokenSchema.safeParse(token).success)throw new HttpError(401);const key=await digest(token);const response=await sessionCall(env,'/read',{key});if(response.status===404)throw new HttpError(401);if(!response.ok)throw new HttpError(503);const session=await response.json();if(session.expiresAt<=Date.now()||(session.root||session.revision===undefined)&&session.username!==env.ADMIN_USERNAME)throw new HttpError(401);return {...session,role:session.role||'admin',key}}
 function csrfCheck(request,session){const csrf=request.headers.get('X-CSRF-Token');if(!csrfSchema.safeParse(csrf).success||csrf!==session.csrf)throw new HttpError(403)}
 export default {async fetch(request,env){const url=new URL(request.url);
  if(!url.pathname.startsWith('/api/')){const response=await env.ASSETS.fetch(request);const headers=new Headers(response.headers);for(const [key,value] of Object.entries(securityHeaders()))headers.set(key,value);return new Response(response.body,{status:response.status,statusText:response.statusText,headers})}
@@ -11,25 +12,42 @@ export default {async fetch(request,env){const url=new URL(request.url);
  try{
   // Reject unexpected query parameters; browser-supplied IP forwarding headers are never used.
   validateHeaders(request);if([...url.searchParams].length)throw new HttpError(400);
-  const known=['/api/auth/login','/api/auth/session','/api/auth/logout','/api/records/validate'];if(!known.includes(url.pathname))throw new HttpError(404);
-  const method=url.pathname==='/api/auth/session'?'GET':'POST';if(request.method!==method)throw new HttpError(405);
+  const known=['/api/auth/login','/api/auth/session','/api/auth/logout','/api/records/validate','/api/users','/api/users/update'];if(!known.includes(url.pathname))throw new HttpError(404);
+  const method=request.method;if(!(url.pathname==='/api/users'?['GET','POST']:url.pathname==='/api/auth/session'?['GET']:['POST']).includes(method))throw new HttpError(405);
   const ip=await digest(request.headers.get('CF-Connecting-IP')||'unknown');
   await limited(env.API_LIMITER,'api:'+ip);
   if(method==='POST'||request.headers.has('Origin'))sameOrigin(request);
   if(url.pathname==='/api/auth/login'){
    // Native edge limits are shared across requests; no per-process JS counters or fail-open fallback.
-   await limited(env.LOGIN_LIMITER,'login-ip:'+ip);await limited(env.LOGIN_ACCOUNT_LIMITER,'admin-account');
-   const input=await readJSON(request,loginSchema);
+   await limited(env.LOGIN_LIMITER,'login-ip:'+ip);
+   const input=await readJSON(request,loginSchema);await limited(env.LOGIN_ACCOUNT_LIMITER,'account:'+await digest(input.username.toLowerCase()));
    if(!env.ADMIN_USERNAME||!env.ADMIN_PASSWORD||env.ADMIN_PASSWORD.length<8||env.ADMIN_PASSWORD.length>128)throw new HttpError(503);
-   const passwordOK=await verifyPassword(input.password,env.ADMIN_PASSWORD);
-   if(!passwordOK||input.username!==env.ADMIN_USERNAME)throw new HttpError(401);
+   const root=input.username===env.ADMIN_USERNAME;
+   let account;
+   if(root){if(!await verifyPassword(input.password,env.ADMIN_PASSWORD))throw new HttpError(401);account={username:env.ADMIN_USERNAME,role:'admin',root:true}}
+   else{const lookup=await sessionCall(env,'/users/authenticate',input);if(lookup.status===401)throw new HttpError(401);if(!lookup.ok)throw new HttpError(503);const user=await lookup.json();account={username:user.username,role:user.role,revision:user.revision,root:false};}
+
    const token=randomToken(),csrf=randomToken(),expiresAt=Date.now()+TTL*1000;
    const previous=readCookie(request);if(sessionTokenSchema.safeParse(previous).success){const old=await sessionCall(env,'/delete',{key:await digest(previous)});if(!old.ok)throw new HttpError(503)}
-   const result=await sessionCall(env,'/create',{key:await digest(token),session:{username:env.ADMIN_USERNAME,csrf,expiresAt}});if(!result.ok)throw new HttpError(503);
-   return json({user:env.ADMIN_USERNAME,csrf,expiresAt},200,{'Set-Cookie':sessionCookie(token,TTL)});
+   const result=await sessionCall(env,'/create',{key:await digest(token),session:{...account,csrf,expiresAt}});if(!result.ok)throw new HttpError(503);
+   return json({user:account.username,role:account.role,csrf,expiresAt},200,{'Set-Cookie':sessionCookie(token,TTL)});
   }
   const session=await currentSession(request,env);
-  if(url.pathname==='/api/auth/session')return json({user:session.username,csrf:session.csrf,expiresAt:session.expiresAt});
+  if(url.pathname==='/api/auth/session')return json({user:session.username,role:session.role,csrf:session.csrf,expiresAt:session.expiresAt});
+  if(url.pathname.startsWith('/api/users')){
+   // Authorization is enforced on the server; hiding controls is not a security boundary.
+   if(session.role!=='admin')throw new HttpError(403);
+   if(method==='GET'){const result=await sessionCall(env,'/users/list',{});if(!result.ok)throw new HttpError(503);return json({users:[{username:env.ADMIN_USERNAME,name:'Administrador principal',role:'admin',active:true,root:true},...await result.json()]})}
+   csrfCheck(request,session);
+   const create=url.pathname==='/api/users',input=await readJSON(request,create?userCreateSchema:userUpdateSchema);
+   // The owner account cannot be disabled, demoted or shadowed; recovery remains via runtime secret.
+   if(input.username.toLowerCase()===env.ADMIN_USERNAME.toLowerCase())throw new HttpError(409);
+   if(!create&&input.username.toLowerCase()===session.username.toLowerCase())throw new HttpError(409);
+   if(!create&&Object.keys(input).length<2)throw new HttpError(400);
+   const result=await sessionCall(env,create?'/users/create':'/users/update',{username:input.username,...(create?{user:input}:{patch:input})});
+   if(!result.ok)throw new HttpError([400,404,409].includes(result.status)?result.status:503);
+   return json({ok:true},create?201:200);
+  }
   csrfCheck(request,session);
   if(url.pathname==='/api/auth/logout'){await readJSON(request,emptySchema);const result=await sessionCall(env,'/delete',{key:session.key});if(!result.ok)throw new HttpError(503);return json({ok:true},200,{'Set-Cookie':sessionCookie('',0)})}
   // Data validation only: this endpoint does not claim to persist or synchronize local records.

@@ -34,3 +34,12 @@ export function bindAuthControls(){document.querySelectorAll('[data-logout]').fo
  showLogin('Saindo da conta…');
  logoutOperation=(async()=>{try{if(!navigator.onLine||!current)throw Error();await request('/api/auth/logout',{method:'POST',headers:{'X-CSRF-Token':current.csrf},body:'{}'});localStorage.removeItem(PENDING_LOGOUT);const message=document.querySelector('#login-error');if(message)message.textContent=''}catch{const message=document.querySelector('#login-error');if(message)message.textContent='Acesso local encerrado. Conecte-se para concluir a saída da conta.'}})().finally(()=>{logoutOperation=null});
  })}
+
+export function isAdministrator(){return hasActiveSession()&&session.role==='admin'}
+export async function accountRequest(path,body){
+ if(!hasActiveSession())throw Error('Entre novamente para continuar.');
+ try{return await request(path,{method:body?'POST':'GET',...(body?{body:JSON.stringify(body),headers:{'X-CSRF-Token':session.csrf}}:{})})}
+ catch(error){if(error.status===401){preserveOpenRecordDraft();showLogin('Entre novamente para continuar.')}if(error.status===409)error.message='Usuário já cadastrado, limite de 50 contas atingido ou alteração não permitida.';throw error}
+}
+
+export function currentUsername(){return session?.user}

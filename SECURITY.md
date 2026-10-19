@@ -17,14 +17,14 @@ Login não é criptografia de dados locais: quem tem acesso ao perfil do navegad
 
 A senha nunca foi incluída no repositório. Não existe senha padrão embutida ou rota de cadastro público. Sem segredo válido, armazenamento de sessões ou rate limit, a API recusa a operação. Até configurar o segredo, o sistema fica na tela de acesso; isso é intencional, sem fallback público que burle o login.
 
-O segredo é mantido no armazenamento de segredos criptografados do Cloudflare e acessado somente no runtime. A senha recebida é comparada por verificação HMAC do WebCrypto com chave efêmera, evitando comparação de strings com saída antecipada. Não há tabela de senhas de usuários. Caso seja criado um cadastro multiusuário, implemente armazenamento com KDF de senha apropriado (por exemplo, Argon2id em serviço compatível), recuperação segura e política de contas; não reutilize este segredo único como banco de usuários.
+O segredo é mantido no armazenamento de segredos criptografados do Cloudflare e acessado somente no runtime. A senha recebida é comparada por verificação HMAC do WebCrypto com chave efêmera, evitando comparação de strings com saída antecipada. O segredo é exclusivo da conta principal. Contas adicionais usam scrypt com salt individual, descrito abaixo.
 
 ## Sessões e autorização
 
 - Tokens opacos de 256 bits aleatórios, sem dados pessoais embutidos.
 - Cookie `__Host-se-admin`, com `Secure`, `HttpOnly`, `SameSite=Strict`, `Path=/` e validade absoluta de uma hora.
 - Apenas o hash SHA-256 do token é usado como chave nas sessões persistentes do Durable Object `AdminSessions`.
-- A sessão é consultada e sua validade é verificada em cada endpoint protegido; o usuário deve corresponder ao administrador configurado.
+- A sessão é consultada e sua validade é verificada em cada endpoint protegido; a conta principal deve corresponder ao administrador configurado; contas adicionais devem estar ativas e com a mesma revisão da sessão.
 - Login renova o token e invalida o token anterior apresentado pelo mesmo navegador. Logout exclui a sessão no servidor, impedindo replay. Alarmes limpam sessões expiradas, que também são recusadas imediatamente na leitura.
 - Dados de sessão e CSRF são enviados com `Cache-Control: no-store, private`. Não são colocados no localStorage ou no cache offline.
 - O navegador exige verificação online ao abrir/recarregar o sistema. Depois de entrar, uma queda temporária permite continuar registros locais dentro da validade da sessão. Nova abertura offline fica na tela de login.
@@ -51,7 +51,7 @@ Strings legítimas não têm apóstrofos, acentos ou caracteres de texto destru�
 
 ## Limites de requisições
 
-Bindings nativos em `wrangler.jsonc`: `API_LIMITER` (60/minuto por IP), `LOGIN_LIMITER` (5/minuto por IP) e `LOGIN_ACCOUNT_LIMITER` (10/minuto para a conta). Os contadores são mantidos pelo Cloudflare e não por um Map volátil do processo. O IP vem do header que a borda Cloudflare fornece; X-Forwarded-For enviado pelo cliente não é usado. Chaves de IP são hashes e não são incluídas nos logs.
+Bindings nativos em `wrangler.jsonc`: `API_LIMITER` (60/minuto por IP), `LOGIN_LIMITER` (5/minuto por IP) e `LOGIN_ACCOUNT_LIMITER` (10/minuto por nome de usuário normalizado). Os contadores são mantidos pelo Cloudflare e não por um Map volátil do processo. O IP vem do header que a borda Cloudflare fornece; X-Forwarded-For enviado pelo cliente não é usado. Chaves de IP são hashes e não são incluídas nos logs.
 
 O rate limiter nativo tem escopo de localização da borda, não representa um bloqueio global perfeitamente consistente. Um ataque distribuído exige controles adicionais de borda/WAF e monitoramento. A resposta de bloqueio é 429 com Retry-After. Ausência de um binding obrigatório não desativa a proteção: a operação falha com 503.
 
@@ -68,3 +68,15 @@ Requer Node.js 24 e npm. Use `npm ci`, `npm test`, `npm run build` e `npm run ch
 `.dev.vars*`, `.env*` e `.wrangler/` estão ignorados. O workflow do GitHub executa testes e build; a integração Cloudflare publica a aplicação e as migrações dos Durable Objects. Não foi confirmada a configuração de segredos nem a publicação na conta remota por este agente.
 
 Testes automatizados cobrem limites, coerção, autenticação, expiração, revogação/replay, CSRF, origem, corpo em streaming, escape, falha fechada e logs sem credenciais. Verificações no navegador usam credenciais sintéticas locais. Isso verifica as barreiras descritas; não é certificação de conformidade integral com OWASP Top 10 nem substitui auditoria de segurança.
+
+## Cadastro de usuários
+
+Em **Usuários → Cadastrar usuário**, administradores informam nome, identificador, perfil e senha de 15–128 caracteres. Operadores têm as funções existentes de consulta e registro, sem API de administração de contas; essa permissão é verificada no Worker. Dados da criação continuam locais e compartilhados entre os logins no mesmo navegador. Não há isolamento de dados locais por pessoa nem sincronização entre aparelhos.
+
+Contas adicionais persistem no Durable Object existente, em chaves `user:` separadas de `session:`. Limite de 50 contas adicionais, identificadores únicos sem distinção de maiúsculas. O administrador principal não pode ser recriado, desativado ou rebaixado, e continua recuperável pelo segredo ADMIN_PASSWORD. Administradores adicionais não alteram o próprio acesso; outro administrador pode redefinir sua senha. Não há recuperação pública por email.
+
+Senhas adicionais usam scrypt N=16384, r=8, p=5, chave de 32 bytes e salt aleatório de 128 bits (`@noble/hashes`), perfil de memória/CPU recomendado pela OWASP. Hashes e salts nunca saem na listagem. O KDF executa dentro do Durable Object, cujo orçamento de CPU comporta o trabalho, em vez do Worker de entrada. Custo e cotas reais devem ser acompanhados no provedor. Usuários inexistentes executam o mesmo KDF; respostas não revelam se a conta existe. Nenhuma senha é guardada no frontend.
+
+`GET /api/users` lista contas para administradores; `POST /api/users` cadastra; `POST /api/users/update` altera perfil/estado ou redefine senha. Escritas exigem sessão de administrador, origem e CSRF, schema estrito e são serializadas no Durable Object. Toda alteração incrementa a revisão e invalida as sessões anteriores no próximo pedido online. Uma tela já aberta sem rede conserva a limitação existente: registros locais podem continuar até expirar a sessão de uma hora. Não existe revogação instantânea de armazenamento offline.
+
+Sessões anteriores do administrador principal continuam compatíveis. Não há migração destrutiva, nova binding ou novo segredo necessário para o cadastro. O service worker continua sem armazenar APIs. Testes cobrem operador sem acesso administrativo, conta principal protegida, duplicidade, redefinição, mudança de perfil e revogação.

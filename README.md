@@ -105,3 +105,7 @@ O usuário conectou o repositório `tdc160/sutrakan`, branch `main`, ao projeto 
 Mantenha a branch de produção `main` e as builds automáticas habilitadas em **Workers & Pages → sutrakan → Settings → Build**. A integração compila e publica os pushes na branch configurada. O workflow GitHub Actions verifica a build separadamente. Não envie `dist` ou `node_modules` ao GitHub. Se o deploy falhar, consulte os logs do Cloudflare; um push bem-sucedido não confirma publicação.
 
 O endereço definitivo aparece no painel Cloudflare após o deploy. A hospedagem não adiciona banco de dados ou sincronização. Os dados do localStorage pertencem ao navegador e à origem HTTPS; mudar de endereço exige exportar e restaurar o backup. Os limites e termos do plano gratuito são os do provedor.
+
+### Usuários
+
+Entre como Talitom e abra **Usuários** (no celular, **Menu → Usuários**). Em **Cadastrar usuário**, preencha nome, usuário, perfil e senha com pelo menos 15 caracteres. Administradores também podem desativar/reativar contas, alterar perfil e redefinir senhas. Cada atualização encerra as sessões anteriores dessa pessoa nos próximos acessos online. A conta Talitom é protegida e mantém a senha configurada no Cloudflare. Contas persistem no servidor; registros da criação continuam locais ao navegador.
