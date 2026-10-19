@@ -1,8 +1,10 @@
+import {feedStateSchema} from './feed-schemas.js';
 import {z} from 'zod';
 import {isNucleus,nucleusConcentrations} from '../feed-items.js';
 // Keep schema evaluation compatible with CSP: no runtime code generation / unsafe-eval.
 z.config({jitless:true});
-export const ingredients=['Quirera de milho','Milho em grão inteiro','Núcleo de engorda','Núcleo de início','Núcleo de crescimento','Núcleo de postura','Farelo de soja','Farelo de trigo','Calcário calcítico','Ração pronta','Outro ingrediente'];
+export {ingredients} from '../feed-items.js';
+import {ingredients} from '../feed-items.js';
 const noControls=s=>!/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/u.test(s);
 // Validate text without stripping legitimate punctuation. Encode for the OUTPUT context;
 // SQL parameters must be bound if a database is introduced, never interpolated strings.
@@ -37,7 +39,7 @@ const makeRecordSchema=allowLegacyNucleus=>z.object({
 export const recordSchema=makeRecordSchema(false);
 // Legacy purchases can lack ingredient/concentration. Never silently infer their values.
 export const storedRecordSchema=makeRecordSchema(true);
-export const backupSchema=z.object({birds:z.array(z.number().int().min(0).max(1000000)).length(5),records:z.array(storedRecordSchema).max(100000)}).strict();
+export const backupSchema=z.object({birds:z.array(z.number().int().min(0).max(1000000)).length(5),records:z.array(storedRecordSchema).max(100000),feed:feedStateSchema.optional()}).strict();
 export const csrfSchema=z.string().regex(/^[A-Za-z0-9_-]{43}$/);
 export const sessionTokenSchema=csrfSchema;
 export const hashSchema=z.string().regex(/^[a-f0-9]{64}$/);

@@ -1,3 +1,4 @@
+import {feedActionSchema} from '../security/feed-schemas.js';
 import {userCreateSchema,userUpdateSchema,centralRecordSchema,farmImportSchema} from '../security/schemas.js';
 import {loginSchema,emptySchema,recordSchema,csrfSchema,sessionTokenSchema} from '../security/schemas.js';
 import {HttpError,json,securityHeaders,validateHeaders,sameOrigin,readJSON,limited,verifyPassword,digest,randomToken,readCookie,sessionCookie} from './security.js';
@@ -15,7 +16,7 @@ export default {async fetch(request,env){const url=new URL(request.url);
  try{
   // Reject unexpected query parameters; browser-supplied IP forwarding headers are never used.
   validateHeaders(request);if([...url.searchParams].length)throw new HttpError(400);
-  const known=['/api/auth/login','/api/auth/session','/api/auth/logout','/api/records/validate','/api/users','/api/users/update','/api/farm','/api/farm/records','/api/farm/import'];if(!known.includes(url.pathname))throw new HttpError(404);
+  const known=['/api/auth/login','/api/auth/session','/api/auth/logout','/api/records/validate','/api/users','/api/users/update','/api/farm','/api/farm/records','/api/farm/import','/api/farm/feed'];if(!known.includes(url.pathname))throw new HttpError(404);
   const method=request.method;if(!(url.pathname==='/api/users'?['GET','POST']:['/api/auth/session','/api/farm'].includes(url.pathname)?['GET']:['POST']).includes(method))throw new HttpError(405);
   const ip=await digest(request.headers.get('CF-Connecting-IP')||'unknown');
   await limited(env.API_LIMITER,'api:'+ip);
@@ -42,7 +43,12 @@ export default {async fetch(request,env){const url=new URL(request.url);
    let path='/read',payload={};
    if(method==='POST'){
     csrfCheck(request,session);
-    if(url.pathname==='/api/farm/import'){if(session.role!=='admin')throw new HttpError(403);path='/import';payload=await readJSON(request,farmImportSchema,10*1024*1024)}
+    if(url.pathname==='/api/farm/feed'){
+     const command=await readJSON(request,feedActionSchema);
+     // Operators can produce and reconcile due consumption; only admins configure opening stock/plans/adjustments.
+     if(!['produce','settle'].includes(command.action)&&session.role!=='admin')throw new HttpError(403);
+     path='/feed';payload={command,username:session.username};
+    }else if(url.pathname==='/api/farm/import'){if(session.role!=='admin')throw new HttpError(403);path='/import';payload=await readJSON(request,farmImportSchema,10*1024*1024)}
     else{path='/record';payload={record:await readJSON(request,centralRecordSchema),username:session.username}}
    }
    const result=await env.FARM_STORE.get(env.FARM_STORE.idFromName('santo-expedito')).fetch(new Request('https://internal'+path,{method:'POST',body:JSON.stringify(payload)}));
@@ -77,4 +83,7 @@ export default {async fetch(request,env){const url=new URL(request.url);
   const message=status===401?'Credenciais inválidas ou acesso não autorizado.':status>=500?'Serviço temporariamente indisponível.':'Não foi possível processar a solicitação.';
   return json({error:message,requestId},status,{...(status===429?{'Retry-After':'60'}:{}),...(status===405?{'Allow':url.pathname==='/api/users'?'GET, POST':['/api/auth/session','/api/farm'].includes(url.pathname)?'GET':'POST'}:{})});
  }
+},async scheduled(controller,env,ctx){
+ // Cloudflare Cron runs independently of open browsers. All debits are serialized/idempotent in FarmStore.
+ const task=(async()=>{if(!env.FARM_STORE?.idFromName)throw Error('Missing farm binding');const response=await env.FARM_STORE.get(env.FARM_STORE.idFromName('santo-expedito')).fetch(new Request('https://internal/feed-settle',{method:'POST',body:'{}'}));if(!response.ok&&response.status!==409)throw Error('Daily feed settlement failed')})();ctx.waitUntil(task);
 }};

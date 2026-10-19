@@ -1,3 +1,4 @@
+import {preserveFeedDrafts,registerFeedDraftCapture} from './feed-drafts.js';
 import {shortcutMarkup} from './shortcuts.js';
 import {connectionMarkup,refreshConnection} from './offline.js';
 import {preserveOpenRecordDraft} from './record-form.js';
@@ -13,6 +14,7 @@ async function request(path,options={}){
 }
 
 function showLogin(message=''){
+ preserveFeedDrafts();registerFeedDraftCapture(null);
  clearTimeout(expiryTimer);session=null;
  document.querySelector('#app').innerHTML=`<main class="login-screen"><section class="login-card" aria-labelledby="login-title"><span class="tag">CHÁCARA SANTO EXPEDITO</span><h1 id="login-title">Entre para cuidar <span class="login-title-tail">da sua criação.</span></h1><p>O acesso precisa de internet. Seus registros ficam na base compartilhada. Rascunhos continuam neste aparelho.</p><form id="login-form"><label>Usuário<input name="username" autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="64" required value="Talitom"></label><label>Senha<input name="password" type="password" autocomplete="current-password" minlength="8" maxlength="128" required></label><label class="show-password"><input type="checkbox" id="show-password">Mostrar senha</label><p id="login-error" role="alert"></p><button class="primary" type="submit">Entrar com segurança</button></form><p class="login-connection" id="login-connection" role="status"></p><p class="login-notice" id="login-notice"></p>${connectionMarkup()}${shortcutMarkup()}</section></main>`;
  document.querySelector('#login-error').textContent=message;

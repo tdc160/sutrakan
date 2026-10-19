@@ -6,7 +6,7 @@ export function decorateIcons(root=document){
     const text=el.textContent.trim();const node=el.classList.contains('brandmark')?Sprout:symbols[text];
     if(node)el.innerHTML=icon(node);
   });
-  const feed=root.querySelector('[data-page="Formulação de rações"]>span');if(feed)feed.innerHTML=icon(Wheat);
+  root.querySelectorAll('[data-page="Formulação de rações"]>span,[data-page="Produção de ração"]>span').forEach(feed=>feed.innerHTML=icon(Wheat));
   const newButton=root.querySelector('#new');if(newButton)newButton.innerHTML=icon(Plus)+' Novo registro';
   root.querySelectorAll('.nav').forEach(b=>{b.setAttribute('aria-label',b.dataset.page);b.setAttribute('title',b.dataset.page);if(b.classList.contains('active'))b.setAttribute('aria-current','page')});
   root.querySelectorAll('#allflock,#history').forEach(el=>{el.innerHTML=el.textContent.replace('↗','').trim()+' '+icon(ArrowUpRight)});

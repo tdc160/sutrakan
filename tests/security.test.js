@@ -112,3 +112,14 @@ test('public update navigation serves the current shell without API caching or a
  const response=await worker.fetch(new Request('https://santo.test/api/app/update'),env);assert.equal(response.status,200);assert.equal(assetPath,'/');assert.equal(response.headers.get('Cache-Control'),'no-store');assert.match(response.headers.get('Content-Type'),/text\/html/);assert.match(await response.text(),/current app/);
  assert.equal((await worker.fetch(req('/api/app/update',{}),env)).status,404);
 });
+test('feed administration requires admin, production requires session/CSRF, and client-computed stock is rejected',async()=>{
+ const {env}=fixture(),admin=await login(env),password=crypto.randomUUID();await worker.fetch(req('/api/farm/import',{data:{birds:[200,70,0,0,0],records:[]},revision:0},admin),env);
+ await worker.fetch(req('/api/users',{username:'FeedOperator',name:'Operador',role:'operator',password},admin),env);const logged=await worker.fetch(req('/api/auth/login',{username:'FeedOperator',password}),env),account=await logged.json(),operator={cookie:logged.headers.get('Set-Cookie').split(';')[0],csrf:account.csrf};
+ const opening={id:crypto.randomUUID(),action:'initialize',revision:1,ingredients:[{ingredient:'Quirera de milho',kg:100},{ingredient:'Farelo de soja',kg:100},{ingredient:'Núcleo de início',concentration:4,kg:100}],rations:[]};
+ assert.equal((await worker.fetch(req('/api/farm/feed',opening,operator),env)).status,403);assert.equal((await worker.fetch(req('/api/farm/feed',opening,admin),env)).status,200);
+ const production={id:crypto.randomUUID(),action:'produce',recipe:'inicio',cornKg:25,concentration:4};assert.equal((await worker.fetch(req('/api/farm/feed',production,{cookie:operator.cookie}),env)).status,403);assert.equal((await worker.fetch(req('/api/farm/feed',{...production,totalKg:999},operator),env)).status,400);assert.equal((await worker.fetch(req('/api/farm/feed',production,operator),env)).status,200);
+ assert.equal((await worker.fetch(req('/api/farm/feed',{id:crypto.randomUUID(),action:'adjust',target:'ration',recipe:'inicio',deltaKg:100,reason:'Teste'},operator),env)).status,403);
+ assert.equal((await worker.fetch(req('/api/farm/feed',{id:crypto.randomUUID(),action:'plan',plan:{id:crypto.randomUUID(),name:'Galpão',shed:1,recipe:'inicio',mode:'shed'}},operator),env)).status,403);
+ assert.equal((await worker.fetch(req('/api/farm/feed-settle',{},operator),env)).status,404);
+ const saved=await (await worker.fetch(req('/api/farm',null,{...admin,method:'GET'}),env)).json();assert.equal(saved.feed.productions[0].createdBy,'FeedOperator');assert.equal(saved.records.length,0);
+});

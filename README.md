@@ -47,7 +47,7 @@ Dias sem lançamentos mostram zero registrado, não produção ou movimento comp
 - Milho em grão inteiro é um item separado da quirera usada nas receitas: suas compras entram nas despesas e no resumo por ingrediente, sem alterar o preço da quirera na formulação. Para sacos, informe o peso total em kg conforme a embalagem e anote o número de sacos nas observações; não há peso de saco presumido.
 - Ao comprar um núcleo, é obrigatório informar a inclusão indicada no rótulo: 3%, 4% ou 5% (30, 40 ou 50 kg/t). A concentração fica no registro, histórico e backup; núcleos de mesma fase com concentrações distintas têm custos separados. Compras anteriores sem esse campo permanecem identificadas como concentração não informada, sem inferência automática.
 - O Financeiro agrupa compras para a ração por ingrediente, com kg, gasto total e custo médio ponderado por kg (gasto dividido pelos kg comprados). Registros antigos sem ingrediente permanecem em Ração sem detalhamento; não são classificados automaticamente. Novos backups mantêm esse campo e backups anteriores continuam compatíveis.
-- O detalhamento registra despesas e não contabiliza estoque ou consumo de ingredientes. A página Formulação de rações escala as quatro receitas informadas pelo proprietário, conforme detalhado abaixo; não realiza balanceamento nutricional. Formulações devem seguir orientação técnica e a indicação do fabricante do núcleo.
+- O Financeiro detalha as compras; os saldos físicos e as baixas ficam em Produção de ração após a abertura do estoque. A página Formulação de rações escala as quatro receitas informadas pelo proprietário, conforme detalhado abaixo; não realiza balanceamento nutricional. Formulações devem seguir orientação técnica e a indicação do fabricante do núcleo.
 - O financeiro mostra receitas e despesas acumuladas, sem estimativas ou receitas demonstrativas.
 - Histórico permite exportar o backup da base compartilhada e baixar a cópia legada do aparelho. A importação de backup fica disponível somente antes de iniciar a base central, para impedir substituição acidental do histórico em uso.
 
@@ -55,7 +55,7 @@ Dias sem lançamentos mostram zero registrado, não produção ou movimento comp
 
 Os registros ficam no armazenamento persistente do Cloudflare Durable Object FarmStore. Todos os usuários autenticados consultam o mesmo plantel, despesas, receitas e produção. A abertura e o salvamento exigem conexão. As telas atualizam a cada 30 segundos quando visíveis e sem formulário/menu aberto; Atualizar dados busca imediatamente. Faça backups regularmente no Histórico. Limpar o navegador remove rascunhos e cópias antigas locais, mas não os registros já confirmados no servidor.
 
-Esta primeira versão não controla estoque físico de ovos, medicamentos, ração ou carcaças; compra de ração não equivale a consumo. Uma venda de aves abatidas reduz diretamente o plantel vivo: registre-a apenas uma vez por ave, pois não existe movimentação separada de abate. Não há edição/exclusão de lançamentos ou cadastro de lotes com idade nesta versão. O saldo inicial é aproximado e deve ser conferido antes do uso operacional.
+Não há estoque físico de ovos, medicamentos ou carcaças. Ingredientes e rações produzidas têm estoque próprio após a abertura em Produção de ração; compra não equivale a consumo. Uma venda de aves abatidas reduz diretamente o plantel vivo: registre-a apenas uma vez por ave, pois não existe movimentação separada de abate. Não há edição/exclusão de lançamentos ou cadastro de lotes com idade nesta versão. O saldo inicial é aproximado e deve ser conferido antes do uso operacional.
 
 ## Formulação de rações
 
@@ -121,3 +121,19 @@ Sem conexão é possível consultar a tela já aberta e preencher um rascunho. O
 ### Atalhos no computador e no celular
 
 A tela de login, o rodapé e o Menu do celular oferecem **Atalho no computador** e **Atalho no celular**. Quando o navegador oferece instalação PWA, o usuário pode confirmar pelo diálogo. No Windows também é possível baixar `Santo Expedito.url` e mover o arquivo de Downloads para a Área de Trabalho. No iPhone/iPad, o diálogo orienta Safari → Compartilhar → Adicionar à Tela de Início. Android orienta o menu do Chrome. Navegadores sem instalação recebem instruções e endereço copiável, sem prometer criação automática de atalhos. A instalação mantém o login online e a base compartilhada.
+
+## Produção e consumo de ração
+
+Acesse **Produção de ração** (no celular, Menu). O fluxo é:
+
+1. Um administrador informa o estoque físico atual de cada ingrediente/concentração e de cada uma das quatro rações prontas. Compras anteriores continuam no Financeiro, mas **não são somadas novamente**. A posição no histórico é guardada para que somente compras registradas depois da abertura entrem no saldo.
+2. Em **Produzir ração**, escolha Início, Crescimento, Postura ou Engorda, a base de quirera (padrão 25 kg) e o núcleo de 3%, 4% ou 5%. Confira a prévia. Ao confirmar, ingredientes saem e o total calculado entra na ração selecionada, na mesma transação. Não é registrada outra despesa financeira.
+3. Em **Alimentação por galpão**, um administrador escolhe a ração de cada galpão. Cada galpão usa uma única ração, conforme informado pelo proprietário. Aves ainda sem distribuição podem ser associadas pela opção A distribuir. Não há escolha automática pela idade, pois os lotes ainda não têm nascimento cadastrado individualmente.
+
+O Cloudflare Cron configurado em `wrangler.jsonc` (`10 3 * * *`, UTC) executa às **00h10 de Brasília**, fecha o dia anterior e baixa `aves do galpão × g/ave/dia ÷ 1000`: Início 40 g; Crescimento 70 g; Postura 110 g; Engorda 120 g. A configuração começa no dia em que for salva, sem retroagir ao histórico. Usa o plantel registrado ao encerramento, e não uma média por hora nem medição do alimento efetivamente ingerido. Nascimentos/saídas alteram a quantidade usada nos próximos fechamentos. Lançamentos retroativos não refazem dias fechados.
+
+O botão **Conferir baixas até ontem** permite conciliar manualmente se um agendamento atrasar. A conciliação também ocorre antes das novas mutações do plantel/ração para preservar o retrato do dia anterior. Repetir o job não duplica a baixa. Falta de ração gera pendência sem saldo negativo; ao produzir ou adicionar saldo, as pendências são atendidas por data, com prioridade das mais antigas da mesma ração. A tela inicial mostra um aviso de pendências. A recuperação de uma interrupção longa avança em blocos de até 31 dias por passagem, sem descartar datas.
+
+Núcleos da mesma fase com concentrações diferentes têm saldos separados. Milho em grão inteiro não substitui a quirera da fórmula; seu fornecimento avulso pode ser registrado como ajuste negativo de ingrediente. Ração pronta comprada sem fase fica sem associação às quatro rações produzidas. Ajustes de ingrediente ou ração exigem administrador e motivo, não podem deixar saldo negativo e não geram receita/despesa. Perdas e diferenças do peso efetivo da mistura podem ser ajustadas com motivo.
+
+Os históricos de produção, ajustes e baixas ficam na página; o backup da base inclui o conteúdo completo. Massas são contabilizadas em miligramas inteiros e exibidas em kg com até três casas, conservando o total da mistura. Não houve alteração das proporções da formulação fornecida nem validação nutricional adicional. Rascunhos de produção são guardados no aparelho, mas a confirmação depende da gravação online.
