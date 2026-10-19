@@ -41,7 +41,7 @@ As receitas foram fornecidas pelo proprietário, com base padrão de 25 kg de qu
 | Postura | 60% | 23% | 5% | 8% | 4% | 110 g/ave/dia |
 | Engorda | 82% | 14% | — | — | 4% | 120 g/ave/dia |
 
-Total = kg de milho / percentual de milho. A quantidade de milho e o número de aves desta fase são ajustáveis para simulação. O total é calculado sem arredondamentos intermediários e exibido com 3 casas decimais; a mistura de postura usa exatamente 25 kg de milho e resulta em 41,667 kg, em vez dos 41,670 kg arredondados da tabela enviada. A seleção da fase é manual: a tabela do proprietário inclui o dia 56 tanto no início quanto no crescimento. Engorda não tem faixa etária informada.
+Total = kg de milho / percentual de milho. A quantidade de milho e o número de aves desta fase são ajustáveis para simulação. O total é calculado sem arredondamentos intermediários e exibido com 3 casas decimais; a mistura de postura usa exatamente 25 kg de milho e resulta em 41,667 kg, em vez dos 41,670 kg arredondados da tabela enviada. A seleção da fase é manual: início de 1 a 56 dias, crescimento de 57 a 126 dias e postura a partir de 127 dias, conforme correção do proprietário. Engorda não tem faixa etária informada.
 
 O núcleo de recria da tabela é associado ao item de compra Núcleo de crescimento, com aviso para conferir o produto. Todas as receitas usam inclusão de 4% (40 kg/t); o usuário informou que a inclusão varia por produto. A página não ajusta automaticamente essa concentração e orienta conferir rótulo e assistência técnica antes do uso.
 
