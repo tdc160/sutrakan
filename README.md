@@ -28,6 +28,10 @@ Os registros ficam no localStorage deste navegador, sem login, sincronização o
 
 Esta primeira versão não controla estoque físico de ovos, medicamentos, ração ou carcaças; compra de ração não equivale a consumo. Uma venda de aves abatidas reduz diretamente o plantel vivo: registre-a apenas uma vez por ave, pois não existe movimentação separada de abate. Não há edição/exclusão de lançamentos ou cadastro de lotes com idade nesta versão. O saldo inicial é aproximado e deve ser conferido antes do uso operacional.
 
+## Guia de manejo
+
+A página Guia de manejo reúne 10 tópicos adaptados da cartilha fornecida, com referências às páginas impressas, busca sem distinção de acentos, filtros por tema e conteúdo expansível. Inclui uma rotina diária de consulta e explica como usar os registros já disponíveis, sem simular cadastro de lotes, consumo diário, alertas sanitários ou diagnóstico. Vacinação e tratamento são apresentados como decisões a definir com assistência veterinária. Não armazena novos dados da criação nem altera os registros existentes.
+
 ## Referência
 
 SENAR. Coleção 147 — *Avicultura: criação de frangos e poedeiras caipiras*, 2024. Planilhas das páginas 235–237 orientaram os registros de plantel e produção. As informações de manejo são referências educativas; tratamentos exigem orientação veterinária. O PDF fornecido pelo usuário não está distribuído no repositório.
