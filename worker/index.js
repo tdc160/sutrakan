@@ -1,6 +1,7 @@
-import {userCreateSchema,userUpdateSchema} from '../security/schemas.js';
+import {userCreateSchema,userUpdateSchema,centralRecordSchema,farmImportSchema} from '../security/schemas.js';
 import {loginSchema,emptySchema,recordSchema,csrfSchema,sessionTokenSchema} from '../security/schemas.js';
 import {HttpError,json,securityHeaders,validateHeaders,sameOrigin,readJSON,limited,verifyPassword,digest,randomToken,readCookie,sessionCookie} from './security.js';
+export {FarmStore} from './farm.js';
 export {AdminSessions} from './sessions.js';
 const TTL=3600;
 async function sessionCall(env,path,data){if(!env.ADMIN_SESSIONS?.idFromName)throw new HttpError(503);const stub=env.ADMIN_SESSIONS.get(env.ADMIN_SESSIONS.idFromName('admin-sessions'));return stub.fetch(new Request('https://internal'+path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)}))}
@@ -12,8 +13,8 @@ export default {async fetch(request,env){const url=new URL(request.url);
  try{
   // Reject unexpected query parameters; browser-supplied IP forwarding headers are never used.
   validateHeaders(request);if([...url.searchParams].length)throw new HttpError(400);
-  const known=['/api/auth/login','/api/auth/session','/api/auth/logout','/api/records/validate','/api/users','/api/users/update'];if(!known.includes(url.pathname))throw new HttpError(404);
-  const method=request.method;if(!(url.pathname==='/api/users'?['GET','POST']:url.pathname==='/api/auth/session'?['GET']:['POST']).includes(method))throw new HttpError(405);
+  const known=['/api/auth/login','/api/auth/session','/api/auth/logout','/api/records/validate','/api/users','/api/users/update','/api/farm','/api/farm/records','/api/farm/import'];if(!known.includes(url.pathname))throw new HttpError(404);
+  const method=request.method;if(!(url.pathname==='/api/users'?['GET','POST']:['/api/auth/session','/api/farm'].includes(url.pathname)?['GET']:['POST']).includes(method))throw new HttpError(405);
   const ip=await digest(request.headers.get('CF-Connecting-IP')||'unknown');
   await limited(env.API_LIMITER,'api:'+ip);
   if(method==='POST'||request.headers.has('Origin'))sameOrigin(request);
@@ -34,6 +35,18 @@ export default {async fetch(request,env){const url=new URL(request.url);
   }
   const session=await currentSession(request,env);
   if(url.pathname==='/api/auth/session')return json({user:session.username,role:session.role,csrf:session.csrf,expiresAt:session.expiresAt});
+  if(url.pathname.startsWith('/api/farm')){
+   if(!env.FARM_STORE?.idFromName)throw new HttpError(503);
+   let path='/read',payload={};
+   if(method==='POST'){
+    csrfCheck(request,session);
+    if(url.pathname==='/api/farm/import'){if(session.role!=='admin')throw new HttpError(403);path='/import';payload=await readJSON(request,farmImportSchema,10*1024*1024)}
+    else{path='/record';payload={record:await readJSON(request,centralRecordSchema),username:session.username}}
+   }
+   const result=await env.FARM_STORE.get(env.FARM_STORE.idFromName('santo-expedito')).fetch(new Request('https://internal'+path,{method:'POST',body:JSON.stringify(payload)}));
+   if(!result.ok)throw new HttpError([400,409,413].includes(result.status)?result.status:503);
+   return json(await result.json());
+  }
   if(url.pathname.startsWith('/api/users')){
    // Authorization is enforced on the server; hiding controls is not a security boundary.
    if(session.role!=='admin')throw new HttpError(403);
@@ -60,6 +73,6 @@ export default {async fetch(request,env){const url=new URL(request.url);
   else if([401,403,429].includes(status))console.warn(JSON.stringify({event:status===429?'rate_limited':status===401?'auth_denied':'request_denied',requestId,route:url.pathname,status}));
   else if(status>=500)console.error(JSON.stringify({event:'service_unavailable',requestId,route:url.pathname,status}));
   const message=status===401?'Credenciais inválidas ou acesso não autorizado.':status>=500?'Serviço temporariamente indisponível.':'Não foi possível processar a solicitação.';
-  return json({error:message,requestId},status,{...(status===429?{'Retry-After':'60'}:{}),...(status===405?{'Allow':url.pathname==='/api/auth/session'?'GET':'POST'}:{})});
+  return json({error:message,requestId},status,{...(status===429?{'Retry-After':'60'}:{}),...(status===405?{'Allow':url.pathname==='/api/users'?'GET, POST':['/api/auth/session','/api/farm'].includes(url.pathname)?'GET':'POST'}:{})});
  }
 }};

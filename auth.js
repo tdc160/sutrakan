@@ -12,7 +12,7 @@ async function request(path,options={}){
 
 function showLogin(message=''){
  clearTimeout(expiryTimer);session=null;
- document.querySelector('#app').innerHTML=`<main class="login-screen"><section class="login-card" aria-labelledby="login-title"><span class="tag">CHÁCARA SANTO EXPEDITO</span><h1 id="login-title">Entre para cuidar<br>da sua criação.</h1><p>O acesso precisa de internet. Seus registros e rascunhos continuam neste aparelho.</p><form id="login-form"><label>Usuário<input name="username" autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="64" required value="Talitom"></label><label>Senha<input name="password" type="password" autocomplete="current-password" minlength="8" maxlength="128" required></label><label class="show-password"><input type="checkbox" id="show-password">Mostrar senha</label><p id="login-error" role="alert"></p><button class="primary" type="submit">Entrar com segurança</button></form><p class="login-connection" id="login-connection" role="status"></p><p class="login-notice" id="login-notice"></p></section></main>`;
+ document.querySelector('#app').innerHTML=`<main class="login-screen"><section class="login-card" aria-labelledby="login-title"><span class="tag">CHÁCARA SANTO EXPEDITO</span><h1 id="login-title">Entre para cuidar<br>da sua criação.</h1><p>O acesso precisa de internet. Seus registros ficam na base compartilhada. Rascunhos continuam neste aparelho.</p><form id="login-form"><label>Usuário<input name="username" autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="64" required value="Talitom"></label><label>Senha<input name="password" type="password" autocomplete="current-password" minlength="8" maxlength="128" required></label><label class="show-password"><input type="checkbox" id="show-password">Mostrar senha</label><p id="login-error" role="alert"></p><button class="primary" type="submit">Entrar com segurança</button></form><p class="login-connection" id="login-connection" role="status"></p><p class="login-notice" id="login-notice"></p></section></main>`;
  document.querySelector('#login-error').textContent=message;
  try{document.querySelector('#login-notice').textContent=localStorage.getItem('santo-expedito-record-draft-v1')?'Há um rascunho guardado neste aparelho. Você poderá retomá-lo após entrar.':''}catch{}
  const form=document.querySelector('#login-form');
@@ -39,7 +39,7 @@ export function isAdministrator(){return hasActiveSession()&&session.role==='adm
 export async function accountRequest(path,body){
  if(!hasActiveSession())throw Error('Entre novamente para continuar.');
  try{return await request(path,{method:body?'POST':'GET',...(body?{body:JSON.stringify(body),headers:{'X-CSRF-Token':session.csrf}}:{})})}
- catch(error){if(error.status===401){preserveOpenRecordDraft();showLogin('Entre novamente para continuar.')}if(error.status===409)error.message='Usuário já cadastrado, limite de 50 contas atingido ou alteração não permitida.';throw error}
+ catch(error){if(error.status===401){preserveOpenRecordDraft();showLogin('Entre novamente para continuar.')}if(error.status===409&&path.startsWith('/api/farm'))error.message='Os dados centrais mudaram ou a operação conflita com o plantel atual. Atualize os dados e confira o registro antes de tentar novamente.';else if(error.status===409)error.message='Usuário já cadastrado, limite de 50 contas atingido ou alteração não permitida.';throw error}
 }
 
 export function currentUsername(){return session?.user}

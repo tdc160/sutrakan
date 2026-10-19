@@ -4,7 +4,7 @@ export function connectionMarkup(){return '<div class="connection-state" role="s
 export function refreshConnection(){
  const label=document.querySelector('#connection-label');if(!label)return;
  label.parentElement.classList.toggle('is-offline',!navigator.onLine);
- label.textContent=!navigator.onLine?'Sem conexão. Registros locais disponíveis nesta sessão.':import.meta.env.DEV?'Dados neste aparelho. Acesso offline na versão publicada.':failed?'A preparação offline falhou. Reconecte-se para tentar novamente.':ready?'Aplicativo preparado. Reabrir exige login online.':'Preparando o aplicativo para quedas de sinal…';
+ label.textContent=!navigator.onLine?'Sem conexão. Consulta disponível; novos registros ficam em rascunho até você salvar online.':import.meta.env.DEV?'Base compartilhada. Salvamento exige conexão.':failed?'A preparação offline falhou. Reconecte-se para tentar novamente.':ready?'Aplicativo preparado. Reabrir exige login online.':'Preparando o aplicativo para quedas de sinal…';
  const button=document.querySelector('#install-update');button.hidden=!pending;
  button.onclick=()=>{if(loadDraft(localStorage)&&!confirm('Há um rascunho guardado neste aparelho. Atualizar e recarregar o aplicativo?'))return;if(registrationRef?.waiting){updateRequested=true;registrationRef.waiting.postMessage({type:'SKIP_WAITING'})}};
 }

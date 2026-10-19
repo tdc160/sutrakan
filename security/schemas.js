@@ -13,7 +13,7 @@ const place=z.number().int().min(0).max(4);
 const validDate=s=>/^\d{4}-\d{2}-\d{2}$/.test(s)&&Number.isFinite(Date.parse(s+'T00:00:00Z'))&&new Date(s+'T00:00:00Z').toISOString().slice(0,10)===s;
 export const localDay=()=>new Date().toLocaleDateString('en-CA',{timeZone:'America/Sao_Paulo'});
 const makeRecordSchema=allowLegacyNucleus=>z.object({
- id:text(100).optional(),type:z.enum(['Coleta de ovos','Venda','Despesa','Nascimento','Mortalidade','Transferência']),
+ id:text(100).optional(),createdBy:text(64).optional(),createdAt:z.number().int().positive().optional(),type:z.enum(['Coleta de ovos','Venda','Despesa','Nascimento','Mortalidade','Transferência']),
  category:text(80),qty:z.number().finite().positive().max(1000000),value:z.number().finite().min(0).max(1000000000),
  date:z.string().refine(validDate).refine(s=>s<=localDay()),note:text(500),from:place.optional(),to:place.optional(),
  ingredient:z.enum(ingredients).optional(),concentration:z.union([z.literal(3),z.literal(4),z.literal(5)]).optional()
@@ -45,3 +45,6 @@ export const hashSchema=z.string().regex(/^[a-f0-9]{64}$/);
 // User administration accepts explicit fields only. New passwords require a long passphrase.
 export const userCreateSchema=z.object({username:loginSchema.shape.username,name:text(80).refine(s=>s.trim().length>0),role:z.enum(['admin','operator']),password:z.string().min(15).max(128)}).strict();
 export const userUpdateSchema=z.object({username:loginSchema.shape.username,active:z.boolean().optional(),role:z.enum(['admin','operator']).optional(),password:z.string().min(15).max(128).optional()}).strict();
+
+export const centralRecordSchema=recordSchema.refine(r=>/^[a-f0-9-]{36}$/i.test(r.id||'')&&r.createdBy===undefined&&r.createdAt===undefined);
+export const farmImportSchema=z.object({data:backupSchema,revision:z.number().int().min(0)}).strict();

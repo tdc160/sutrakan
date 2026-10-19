@@ -23,7 +23,7 @@ Para executar a aplicação completa com autenticação, configure um segredo de
 
 Usuário configurado: **Talitom**. Cadastre **ADMIN_PASSWORD** como **Secret** em Cloudflare → Workers & Pages → sutrakan → Settings → Variables and Secrets, e salve/implante. Nenhuma senha está no código. Sem esse segredo, o acesso é recusado. Login, sessão e rate limits usam o Worker e seu Durable Object; confira [SECURITY.md](SECURITY.md) para arquitetura, limites e rotas.
 
-A abertura do sistema exige verificação online, conforme preferência do proprietário. Registros locais e rascunhos são mantidos no aparelho; login não cria banco de dados remoto nem criptografa o localStorage. Uso em rede instável, leitura, navegação e proteção de rascunhos estão documentados em [MOBILE.md](MOBILE.md).
+A abertura do sistema exige verificação online, conforme preferência do proprietário. Registros são mantidos no Durable Object FarmStore e compartilhados com os usuários autenticados. Rascunhos continuam no aparelho e não são criptografados pelo login. Uso em rede instável, leitura, navegação e proteção de rascunhos estão documentados em [MOBILE.md](MOBILE.md).
 
 ## Dashboard interativo
 
@@ -49,11 +49,11 @@ Dias sem lançamentos mostram zero registrado, não produção ou movimento comp
 - O Financeiro agrupa compras para a ração por ingrediente, com kg, gasto total e custo médio ponderado por kg (gasto dividido pelos kg comprados). Registros antigos sem ingrediente permanecem em Ração sem detalhamento; não são classificados automaticamente. Novos backups mantêm esse campo e backups anteriores continuam compatíveis.
 - O detalhamento registra despesas e não contabiliza estoque ou consumo de ingredientes. A página Formulação de rações escala as quatro receitas informadas pelo proprietário, conforme detalhado abaixo; não realiza balanceamento nutricional. Formulações devem seguir orientação técnica e a indicação do fabricante do núcleo.
 - O financeiro mostra receitas e despesas acumuladas, sem estimativas ou receitas demonstrativas.
-- Histórico permite exportar e restaurar backup JSON. Restaurar substitui os registros após confirmação.
+- Histórico permite exportar o backup da base compartilhada e baixar a cópia legada do aparelho. A importação de backup fica disponível somente antes de iniciar a base central, para impedir substituição acidental do histórico em uso.
 
 ## Armazenamento e limites
 
-Os registros ficam no localStorage deste navegador, sem sincronização ou banco remoto para os dados da criação. A abertura exige login online no Worker. Faça backups regularmente no Histórico. Limpar os dados do navegador remove os registros locais. Outra máquina ou navegador terá outro conjunto de dados.
+Os registros ficam no armazenamento persistente do Cloudflare Durable Object FarmStore. Todos os usuários autenticados consultam o mesmo plantel, despesas, receitas e produção. A abertura e o salvamento exigem conexão. As telas atualizam a cada 30 segundos quando visíveis e sem formulário/menu aberto; Atualizar dados busca imediatamente. Faça backups regularmente no Histórico. Limpar o navegador remove rascunhos e cópias antigas locais, mas não os registros já confirmados no servidor.
 
 Esta primeira versão não controla estoque físico de ovos, medicamentos, ração ou carcaças; compra de ração não equivale a consumo. Uma venda de aves abatidas reduz diretamente o plantel vivo: registre-a apenas uma vez por ave, pois não existe movimentação separada de abate. Não há edição/exclusão de lançamentos ou cadastro de lotes com idade nesta versão. O saldo inicial é aproximado e deve ser conferido antes do uso operacional.
 
@@ -104,8 +104,16 @@ O usuário conectou o repositório `tdc160/sutrakan`, branch `main`, ao projeto 
 
 Mantenha a branch de produção `main` e as builds automáticas habilitadas em **Workers & Pages → sutrakan → Settings → Build**. A integração compila e publica os pushes na branch configurada. O workflow GitHub Actions verifica a build separadamente. Não envie `dist` ou `node_modules` ao GitHub. Se o deploy falhar, consulte os logs do Cloudflare; um push bem-sucedido não confirma publicação.
 
-O endereço definitivo aparece no painel Cloudflare após o deploy. A hospedagem não adiciona banco de dados ou sincronização. Os dados do localStorage pertencem ao navegador e à origem HTTPS; mudar de endereço exige exportar e restaurar o backup. Os limites e termos do plano gratuito são os do provedor.
+O endereço definitivo aparece no painel Cloudflare após o deploy. A configuração publica a migração v2-central-farm e a binding FARM_STORE automaticamente. Não é necessário criar um banco manualmente. A migração dos dados antigos ocorre no primeiro acesso do administrador. Os limites e termos do plano gratuito são os do provedor.
 
 ### Usuários
 
-Entre como Talitom e abra **Usuários** (no celular, **Menu → Usuários**). Em **Cadastrar usuário**, preencha nome, usuário, perfil e senha com pelo menos 15 caracteres. Administradores também podem desativar/reativar contas, alterar perfil e redefinir senhas. Cada atualização encerra as sessões anteriores dessa pessoa nos próximos acessos online. A conta Talitom é protegida e mantém a senha configurada no Cloudflare. Contas persistem no servidor; registros da criação continuam locais ao navegador.
+Entre como Talitom e abra **Usuários** (no celular, **Menu → Usuários**). Em **Cadastrar usuário**, preencha nome, usuário, perfil e senha com pelo menos 15 caracteres. Administradores também podem desativar/reativar contas, alterar perfil e redefinir senhas. Cada atualização encerra as sessões anteriores dessa pessoa nos próximos acessos online. A conta Talitom é protegida e mantém a senha configurada no Cloudflare. Contas e registros da criação persistem no servidor e são compartilhados entre aparelhos.
+
+### Primeira importação central
+
+Após o deploy, entre como Talitom **no aparelho onde está o histórico completo**. Confira as quantidades e escolha **Importar os dados deste aparelho**, ou importe um backup JSON válido. A chave antiga `santo-expedito-v1` permanece intacta e pode ser baixada. O plantel atual é importado diretamente, sem reaplicar nascimentos/vendas antigos. Apenas um administrador pode iniciar a base; um segundo aparelho recebe conflito e precisa atualizar, sem sobrescrever os dados.
+
+Se não houver histórico, **Iniciar sem histórico (270 aves)** cria o ponto inicial configurado. Essa ação também exige confirmação. Se houver históricos diferentes em outros aparelhos, guarde os backups antes: não há fusão automática, pois poderia duplicar vendas e movimentações.
+
+Sem conexão é possível consultar a tela já aberta e preencher um rascunho. O botão Salvar só confirma após a escrita no servidor. Ao reconectar, revise e salve. O identificador acompanha o rascunho para permitir repetir uma tentativa cuja resposta se perdeu, sem duplicar o registro. Novos registros recebem autor e horário do servidor. Não existe fila automática de envios offline.

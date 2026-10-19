@@ -4,9 +4,9 @@
 
 O sistema usa JavaScript, Vite e Cloudflare Workers, com validação Zod compartilhada entre formulários/backup e API. O runtime é o Worker do projeto `sutrakan`; não é necessário publicar Express ou outro servidor Node separado.
 
-O login protege a abertura normal da interface e todas as rotas administrativas da API. Registros da criação e rascunhos continuam no localStorage do aparelho. Não há banco remoto para os registros da criação nem sincronização desses dados. O endpoint de validação valida dados; ele não os salva no servidor.
+O login protege a abertura da interface e todas as APIs de dados. Registros da criação persistem no Durable Object FarmStore, compartilhado entre os usuários autenticados. Rascunhos e a cópia legada pré-migração permanecem no localStorage. O endpoint antigo /api/records/validate continua apenas validando; a escrita central usa /api/farm/records.
 
-Login não é criptografia de dados locais: quem tem acesso ao perfil do navegador, ferramentas de desenvolvimento ou arquivos do aparelho pode acessar o localStorage. Não afirme que o login fornece proteção criptográfica em repouso, isolamento entre vários usuários do mesmo navegador ou um banco central. Isso exige outro projeto de armazenamento e chaves. Não existe modo de “administrador” liberado por um sinalizador de localStorage: a API verifica a sessão no servidor a cada chamada.
+Login não é criptografia de dados locais: quem tem acesso ao perfil do navegador, ferramentas de desenvolvimento ou arquivos do aparelho pode acessar o localStorage. O login não fornece criptografia própria dos rascunhos/cópias locais nem isolamento entre pessoas que compartilham o perfil do navegador. O armazenamento central usa a proteção em repouso do provedor, sem criptografia ponta a ponta implementada pela aplicação. Não existe modo de “administrador” liberado por um sinalizador de localStorage: a API verifica a sessão no servidor a cada chamada.
 
 ## Ativação no Cloudflare
 
@@ -27,7 +27,7 @@ O segredo é mantido no armazenamento de segredos criptografados do Cloudflare e
 - A sessão é consultada e sua validade é verificada em cada endpoint protegido; a conta principal deve corresponder ao administrador configurado; contas adicionais devem estar ativas e com a mesma revisão da sessão.
 - Login renova o token e invalida o token anterior apresentado pelo mesmo navegador. Logout exclui a sessão no servidor, impedindo replay. Alarmes limpam sessões expiradas, que também são recusadas imediatamente na leitura.
 - Dados de sessão e CSRF são enviados com `Cache-Control: no-store, private`. Não são colocados no localStorage ou no cache offline.
-- O navegador exige verificação online ao abrir/recarregar o sistema. Depois de entrar, uma queda temporária permite continuar registros locais dentro da validade da sessão. Nova abertura offline fica na tela de login.
+- O navegador exige verificação online ao abrir/recarregar o sistema. Depois de entrar, uma queda temporária permite consultar a tela carregada e preencher rascunhos dentro da validade da sessão, mas nunca confirmar um registro como salvo sem resposta do servidor. Nova abertura offline fica na tela de login.
 - Na expiração, o preenchimento é preservado antes de bloquear a interface. Em uma saída sem conexão, a interface é bloqueada imediatamente e a invalidação remota é concluída antes de permitir nova entrada online.
 
 ## Endpoints
@@ -45,7 +45,7 @@ Mutações exigem a origem exata da requisição e rejeitam `Sec-Fetch-Site` inc
 
 `security/schemas.js` define campos permitidos, tipos exatos sem coerção, enums de tipo/categoria/ingrediente, limites de strings, datas reais não futuras, quantidades e valores finitos, e regras entre os campos. Exemplos: observações de até 500 caracteres; usuário até 64; senha entre 8 e 128; galpões de 0 a 4; núcleos somente 3%, 4% ou 5%. Para nova senha, prefira uma frase longa e única, de pelo menos 15 caracteres. Campos não declarados são rejeitados. O JIT do Zod é desativado para não exigir unsafe-eval no navegador.
 
-A API limita o corpo a 16 KiB de bytes realmente lidos, mesmo quando Content-Length é falso. Aceita apenas JSON UTF-8, rejeita JSON malformado, parâmetros de query não previstos e headers com controles ou tamanhos excessivos (4 KiB por valor, 16 KiB no total). Backups locais têm limite de 10 MiB e schema de raiz e registros; compras antigas podem não ter ingrediente/concentração, sem atribuição automática.
+A API limita o corpo a 16 KiB de bytes realmente lidos, mesmo quando Content-Length é falso; exclusivamente a importação inicial administrativa permite até 10 MiB. Aceita apenas JSON UTF-8, rejeita JSON malformado, parâmetros de query não previstos e headers com controles ou tamanhos excessivos (4 KiB por valor, 16 KiB no total). Backups locais têm limite de 10 MiB e schema de raiz e registros; compras antigas podem não ter ingrediente/concentração, sem atribuição automática.
 
 Strings legítimas não têm apóstrofos, acentos ou caracteres de texto destruídos. O texto é normalizado para NFC quando processado pelo schema, controles inválidos são rejeitados e o escape é feito no contexto de saída. Templates de dados usam escape HTML ou `textContent`; a API responde JSON com `<`, `>` e `&` escapados e `nosniff`. Não renderize texto do usuário com `innerHTML` sem escape. Não existe SQL neste projeto; caso seja introduzido banco SQL, use exclusivamente comandos parametrizados. Remover aspas da entrada não substitui parâmetros SQL.
 
@@ -71,12 +71,24 @@ Testes automatizados cobrem limites, coerção, autenticação, expiração, rev
 
 ## Cadastro de usuários
 
-Em **Usuários → Cadastrar usuário**, administradores informam nome, identificador, perfil e senha de 15–128 caracteres. Operadores têm as funções existentes de consulta e registro, sem API de administração de contas; essa permissão é verificada no Worker. Dados da criação continuam locais e compartilhados entre os logins no mesmo navegador. Não há isolamento de dados locais por pessoa nem sincronização entre aparelhos.
+Em **Usuários → Cadastrar usuário**, administradores informam nome, identificador, perfil e senha de 15–128 caracteres. Operadores têm as funções existentes de consulta e registro, sem API de administração de contas; essa permissão é verificada no Worker. Dados da criação são centralizados e compartilhados entre todos os usuários autenticados. A permissão de operador permite consulta e criação de lançamentos, incluindo financeiros; somente administradores inicializam a base. Não há restrição por galpão ou por autor.
 
 Contas adicionais persistem no Durable Object existente, em chaves `user:` separadas de `session:`. Limite de 50 contas adicionais, identificadores únicos sem distinção de maiúsculas. O administrador principal não pode ser recriado, desativado ou rebaixado, e continua recuperável pelo segredo ADMIN_PASSWORD. Administradores adicionais não alteram o próprio acesso; outro administrador pode redefinir sua senha. Não há recuperação pública por email.
 
 Senhas adicionais usam scrypt N=16384, r=8, p=5, chave de 32 bytes e salt aleatório de 128 bits (`@noble/hashes`), perfil de memória/CPU recomendado pela OWASP. Hashes e salts nunca saem na listagem. O KDF executa dentro do Durable Object, cujo orçamento de CPU comporta o trabalho, em vez do Worker de entrada. Custo e cotas reais devem ser acompanhados no provedor. Usuários inexistentes executam o mesmo KDF; respostas não revelam se a conta existe. Nenhuma senha é guardada no frontend.
 
-`GET /api/users` lista contas para administradores; `POST /api/users` cadastra; `POST /api/users/update` altera perfil/estado ou redefine senha. Escritas exigem sessão de administrador, origem e CSRF, schema estrito e são serializadas no Durable Object. Toda alteração incrementa a revisão e invalida as sessões anteriores no próximo pedido online. Uma tela já aberta sem rede conserva a limitação existente: registros locais podem continuar até expirar a sessão de uma hora. Não existe revogação instantânea de armazenamento offline.
+`GET /api/users` lista contas para administradores; `POST /api/users` cadastra; `POST /api/users/update` altera perfil/estado ou redefine senha. Escritas exigem sessão de administrador, origem e CSRF, schema estrito e são serializadas no Durable Object. Toda alteração incrementa a revisão e invalida as sessões anteriores no próximo pedido online. Uma tela já aberta sem rede conserva a limitação existente: a consulta já carregada e os rascunhos podem continuar até expirar a sessão de uma hora; a confirmação no servidor sempre verifica a conta. Não existe revogação instantânea de armazenamento offline.
 
 Sessões anteriores do administrador principal continuam compatíveis. Não há migração destrutiva, nova binding ou novo segredo necessário para o cadastro. O service worker continua sem armazenar APIs. Testes cobrem operador sem acesso administrativo, conta principal protegida, duplicidade, redefinição, mudança de perfil e revogação.
+
+## Base central da chácara
+
+`FARM_STORE` aponta para FarmStore, com uma única identidade `santo-expedito`; os dados não ficam no Durable Object de sessões. A migração `v2-central-farm` acrescenta a classe sem apagar usuários/sessões. `GET /api/farm` exige sessão; `POST /api/farm/records` exige sessão, origem, CSRF e schema; `POST /api/farm/import` exige ainda administrador e base não inicializada. APIs não são cacheadas pelo service worker e usam no-store/private.
+
+Escritas são serializadas e confirmadas em transações duráveis. O servidor aplica movimentações sobre o plantel corrente, recusa saldo insuficiente e atribui createdBy/createdAt, rejeitando autoria enviada por clientes. O ID do registro é persistido no rascunho antes do envio: repetir ID/conteúdo retorna a confirmação existente, e ID com conteúdo diferente gera conflito. Dados importados podem ter metadados históricos sem garantia de autoria verificada.
+
+A importação inicial valida o backup inteiro, preserva o plantel informado sem reaplicar movimentos antigos, recusa IDs duplicados e não admite substituição posterior. Nunca agrega automaticamente backups de aparelhos diferentes. O frontend mantém a chave legada intacta, inclusive em falha da importação. O administrador pode baixar essa cópia. Não há endpoint para apagar/substituir uma base central já iniciada.
+
+Snapshots são guardados em valores segmentados (sem cortar pares UTF-16), com metadados e segmentos na mesma transação. Limites: 20 mil registros e 10 MiB por snapshot; snapshot completo lido/escrito por operação, adequado ao porte inicial. Não há paginação ou streaming de registros. Para volumes maiores, evoluir o modelo antes de atingir esse teto. Backups exportados são necessários para recuperação fora do provedor; não existe agendamento de backup externo. Cotas do plano Cloudflare continuam aplicáveis.
+
+Verificações incluem concorrência entre movimentações, importação única, rollback de falha de armazenamento, persistência após recriar o objeto, Unicode entre segmentos, autorização e idempotência. Navegadores isolados verificam migração, compartilhamento, rascunho offline e repetição após perda de resposta/reload no runtime Cloudflare local.

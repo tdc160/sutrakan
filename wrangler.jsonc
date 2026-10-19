@@ -18,6 +18,10 @@
       {
         "name": "ADMIN_SESSIONS",
         "class_name": "AdminSessions"
+      },
+      {
+        "name": "FARM_STORE",
+        "class_name": "FarmStore"
       }
     ]
   },
@@ -26,6 +30,12 @@
       "tag": "v1-admin-sessions",
       "new_sqlite_classes": [
         "AdminSessions"
+      ]
+    },
+    {
+      "tag": "v2-central-farm",
+      "new_sqlite_classes": [
+        "FarmStore"
       ]
     }
   ],

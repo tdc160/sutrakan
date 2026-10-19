@@ -14,8 +14,9 @@ export function showRecordForm({ingredients,names,birds,today,preset,submit}){
  let currentType=draft.values.type;
  const mobile=matchMedia('(max-width:700px)').matches;
  dialog.setAttribute('aria-labelledby','record-title');
- dialog.innerHTML=`<form id="recordform"><div class="formtop"><div><span class="eyebrow">REGISTRO DA CRIAÇÃO</span><h2 id="record-title">Novo registro</h2></div><button type="button" id="close" aria-label="Fechar e guardar rascunho">✕</button></div><p id="draft-status" class="draft-status" role="status">${stored?'Rascunho retomado. Confira e termine de preencher.':'Preencha e salve. O registro fica neste aparelho.'}</p><label for="type">O que deseja registrar?<select name="type" id="type">${types.map(t=>`<option>${t}</option>`).join('')}</select></label><div id="fields"></div><details class="record-extras" ${mobile?'':'open'}><summary>Data e observações <span id="record-date-label"></span></summary><label>Data do registro<input type="date" name="date" required max="${today}"></label><label>Observações (opcional)<textarea name="note" maxlength="500" placeholder="Ex.: 2 sacos de 25 kg"></textarea></label></details><p id="error" role="alert"></p><button type="button" id="discard-draft">Descartar rascunho</button><div class="formactions"><button type="button" id="cancel">Guardar e fechar</button><button class="primary" type="submit">Salvar registro</button></div></form>`;
+ dialog.innerHTML=`<form id="recordform"><div class="formtop"><div><span class="eyebrow">REGISTRO DA CRIAÇÃO</span><h2 id="record-title">Novo registro</h2></div><button type="button" id="close" aria-label="Fechar e guardar rascunho">✕</button></div><p id="draft-status" class="draft-status" role="status">${stored?'Rascunho retomado. Confira e termine de preencher.':'Ao salvar, o registro será enviado à base compartilhada. Sem conexão, o rascunho fica neste aparelho.'}</p><label for="type">O que deseja registrar?<select name="type" id="type">${types.map(t=>`<option>${t}</option>`).join('')}</select></label><div id="fields"></div><details class="record-extras" ${mobile?'':'open'}><summary>Data e observações <span id="record-date-label"></span></summary><label>Data do registro<input type="date" name="date" required max="${today}"></label><label>Observações (opcional)<textarea name="note" maxlength="500" placeholder="Ex.: 2 sacos de 25 kg"></textarea></label></details><p id="error" role="alert"></p><button type="button" id="discard-draft">Descartar rascunho</button><div class="formactions"><button type="button" id="cancel">Guardar e fechar</button><button class="primary" type="submit">Salvar registro</button></div></form>`;
  const form=dialog.querySelector('form');
+ form.dataset.recordId=/^[a-f0-9-]{36}$/i.test(draft.values.recordId||'')?draft.values.recordId:crypto.randomUUID();
  form.elements.type.value=currentType;
  form.elements.date.value=draft.values.date||today;
  form.elements.note.value=draft.values.note||'';
@@ -25,7 +26,7 @@ export function showRecordForm({ingredients,names,birds,today,preset,submit}){
    if(!captureActive)return true;
    const fields=Object.fromEntries(new FormData(form));
    const {type,date,note,...rest}=fields;
-   draft.values={type:currentType,date,note};draft.byType[currentType]=rest;draft.updatedAt=new Date().toISOString();memoryDraft=draft;
+   draft.values={type:currentType,date,note,recordId:form.dataset.recordId};draft.byType[currentType]=rest;draft.updatedAt=new Date().toISOString();memoryDraft=draft;
    try{writeDraft(localStorage,draft);if(status.textContent!=='Rascunho guardado neste aparelho.')status.textContent='Rascunho guardado neste aparelho.';status.classList.remove('draft-error');dateLabel();return true}catch{status.textContent='Não foi possível guardar o rascunho. Mantenha esta tela aberta e verifique o espaço do navegador.';status.classList.add('draft-error');return false}
  };
  const fields=()=>{

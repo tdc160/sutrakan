@@ -1,10 +1,11 @@
+import {farmFixture} from './helpers/farm-fixture.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import worker from '../worker/index.js';
 import {AdminSessions} from '../worker/sessions.js';
 import {cookieName} from '../worker/security.js';
 import {recordSchema,backupSchema} from '../security/schemas.js';
-function fixture(){const data=new Map();let alarm=null;const object=new AdminSessions({blockConcurrencyWhile:fn=>fn(),storage:{async get(k){return data.get(k)},async put(k,v){data.set(k,v)},async delete(k){return data.delete(k)},async list(){return new Map(data)},async getAlarm(){return alarm},async setAlarm(t){alarm=t}}});const limiter=limit=>{const counts=new Map();return {async limit({key}){const count=(counts.get(key)||0)+1;counts.set(key,count);return {success:count<=limit}}}};return {data,env:{ADMIN_USERNAME:'Talitom',ADMIN_PASSWORD:crypto.randomUUID(),API_LIMITER:limiter(60),LOGIN_LIMITER:limiter(5),LOGIN_ACCOUNT_LIMITER:limiter(10),ADMIN_SESSIONS:{idFromName:n=>n,get:()=>({fetch:r=>object.fetch(r)})},ASSETS:{fetch:async()=>new Response('<html>app</html>',{headers:{'Content-Type':'text/html'}})}}}}
+function fixture(){const farm=farmFixture();const data=new Map();let alarm=null;const object=new AdminSessions({blockConcurrencyWhile:fn=>fn(),storage:{async get(k){return data.get(k)},async put(k,v){data.set(k,v)},async delete(k){return data.delete(k)},async list(){return new Map(data)},async getAlarm(){return alarm},async setAlarm(t){alarm=t}}});const limiter=limit=>{const counts=new Map();return {async limit({key}){const count=(counts.get(key)||0)+1;counts.set(key,count);return {success:count<=limit}}}};return {data,env:{ADMIN_USERNAME:'Talitom',ADMIN_PASSWORD:crypto.randomUUID(),API_LIMITER:limiter(60),LOGIN_LIMITER:limiter(5),LOGIN_ACCOUNT_LIMITER:limiter(10),FARM_STORE:{idFromName:n=>n,get:()=>({fetch:r=>farm.object.fetch(r)})},ADMIN_SESSIONS:{idFromName:n=>n,get:()=>({fetch:r=>object.fetch(r)})},ASSETS:{fetch:async()=>new Response('<html>app</html>',{headers:{'Content-Type':'text/html'}})}}}}
 const req=(path,body,{method='POST',headers={},cookie,csrf}={})=>new Request('https://santo.test'+path,{method,headers:{Origin:'https://santo.test','Content-Type':'application/json','CF-Connecting-IP':'192.0.2.5',...(cookie?{Cookie:cookie}:{}),...(csrf?{'X-CSRF-Token':csrf}:{}),...headers},...(method!=='GET'?{body:typeof body==='string'?body:JSON.stringify(body??{})}:{})});
 async function login(env){const response=await worker.fetch(req('/api/auth/login',{username:'Talitom',password:env.ADMIN_PASSWORD}),env);assert.equal(response.status,200);const cookie=response.headers.get('Set-Cookie').split(';')[0];const data=await response.json();return {cookie,csrf:data.csrf,response,data}}
 const record=()=>({type:'Coleta de ovos',category:'Coleta de ovos',qty:12,value:0,date:new Date().toLocaleDateString('en-CA',{timeZone:'America/Sao_Paulo'}),note:''});
@@ -84,4 +85,25 @@ test('root protection, CSRF, unique names, password resets and role changes are 
  assert.equal((await worker.fetch(req('/api/users',null,{...session,method:'GET'}),env)).status,401);
  assert.equal((await worker.fetch(req('/api/auth/login',{username:'Helper',password}),env)).status,401);
  const fresh=await worker.fetch(req('/api/auth/login',{username:'Helper',password:newPassword}),env);assert.equal(fresh.status,200);assert.equal((await fresh.json()).role,'operator');
+});
+
+test('central farm endpoints require session and CSRF, and only administrators initialize',async()=>{
+ const {env}=fixture(),admin=await login(env),password=crypto.randomUUID();
+ assert.equal((await worker.fetch(req('/api/farm',null,{method:'GET'}),env)).status,401);
+ const initial={data:{birds:[200,70,0,0,0],records:[]},revision:0};
+ assert.equal((await worker.fetch(req('/api/farm/import',initial,{cookie:admin.cookie}),env)).status,403);
+ await worker.fetch(req('/api/users',{username:'Worker',name:'Equipe',role:'operator',password},admin),env);
+ const signed=await worker.fetch(req('/api/auth/login',{username:'Worker',password}),env),details=await signed.json(),operator={cookie:signed.headers.get('Set-Cookie').split(';')[0],csrf:details.csrf};
+ assert.equal((await worker.fetch(req('/api/farm/import',initial,operator),env)).status,403);
+ assert.equal((await worker.fetch(req('/api/farm/import',initial,admin),env)).status,200);
+ const r={...record(),id:crypto.randomUUID()};assert.equal((await worker.fetch(req('/api/farm/records',r,operator),env)).status,200);
+ const shared=await worker.fetch(req('/api/farm',null,{...admin,method:'GET'}),env);assert.equal((await shared.json()).records[0].createdBy,'Worker');assert.match(shared.headers.get('Cache-Control'),/no-store/);
+ assert.equal((await worker.fetch(req('/api/farm/records',{...r,createdBy:'Talitom'},operator),env)).status,400);
+});
+test('administrative migration accepts a bounded legacy backup larger than an ordinary record body',async()=>{
+ const {env}=fixture(),admin=await login(env);const records=Array.from({length:100},()=>({...record(),id:crypto.randomUUID(),note:'histórico '.repeat(30)}));
+ const body={data:{birds:[12,7,0,0,0],records},revision:0};assert.ok(JSON.stringify(body).length>16384);
+ assert.equal((await worker.fetch(req('/api/farm/import',body,admin),env)).status,200);
+ assert.equal((await worker.fetch(req('/api/farm/import',body,admin),env)).status,409);
+ const saved=await (await worker.fetch(req('/api/farm',null,{...admin,method:'GET'}),env)).json();assert.equal(saved.records.length,100);assert.deepEqual(saved.birds,[12,7,0,0,0]);
 });
