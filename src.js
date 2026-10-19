@@ -19,6 +19,7 @@ import './style.css';
 import './design-system.css';
 import './field.css';
 import './auth.css';
+import './shortcuts.css';
 if(location.pathname==='/api/app/update')history.replaceState(null,'','/');
 const key='santo-expedito-v1';
 const initial={birds:[200,70,0,0,0],records:[]};

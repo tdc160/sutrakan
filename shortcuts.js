@@ -1,11 +1,13 @@
-import './shortcuts.css';
-let installPrompt=null,installed=matchMedia('(display-mode: standalone)').matches||navigator.standalone===true;
+const browser=typeof window!=='undefined';
+let installPrompt=null,installed=browser&&(matchMedia('(display-mode: standalone)').matches||navigator.standalone===true);
 const isMobile=()=>/Android|iPhone|iPad|iPod/i.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
 const isAppleMobile=()=>/iPhone|iPad|iPod/i.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
 // Keep the browser's one-use installation event in memory, never in storage.
+if(browser){
 addEventListener('beforeinstallprompt',event=>{event.preventDefault();installPrompt=event;refreshInstallControls()});
 addEventListener('appinstalled',()=>{installed=true;installPrompt=null;refreshInstallControls();const status=document.querySelector('#shortcut-status');if(status)status.textContent='Aplicativo instalado. Procure Santo Expedito nos aplicativos ou na tela inicial.'});
 matchMedia('(display-mode: standalone)').addEventListener('change',event=>{if(event.matches){installed=true;refreshInstallControls()}});
+}
 export function shortcutMarkup(){return `<section class="shortcut-options" aria-label="Atalhos de acesso"><p>Acesse mais rápido</p><div><button type="button" data-shortcut="desktop" aria-haspopup="dialog">Atalho no computador</button><button type="button" data-shortcut="mobile" aria-haspopup="dialog">Atalho no celular</button></div><small data-install-state>${installed?'Aplicativo aberto no modo instalado.':'Coloque Santo Expedito entre seus aplicativos.'}</small></section>`}
 function refreshInstallControls(){if(installed){const button=document.querySelector('#shortcut-install');if(button)button.hidden=true}document.querySelectorAll('[data-install-state]').forEach(el=>el.textContent=installed?'Aplicativo instalado neste aparelho.':'Coloque Santo Expedito entre seus aplicativos.')}
 function showInstructions(target){let dialog=document.querySelector('#shortcut-dialog');if(!dialog){dialog=document.createElement('dialog');dialog.id='shortcut-dialog';dialog.setAttribute('aria-labelledby','shortcut-title');dialog.setAttribute('aria-describedby','shortcut-description');document.body.append(dialog)}
@@ -26,4 +28,4 @@ function showInstructions(target){let dialog=document.querySelector('#shortcut-d
  };
  const menu=document.querySelector('#field-menu');if(menu?.open)menu.close();dialog.showModal();
 }
-document.addEventListener('click',event=>{const button=event.target.closest('[data-shortcut]');if(button)showInstructions(button.dataset.shortcut)});
+if(browser)document.addEventListener('click',event=>{const button=event.target.closest('[data-shortcut]');if(button)showInstructions(button.dataset.shortcut)});
