@@ -24,6 +24,7 @@ Para produção: `npm run build`. Para conferir a compilação: `npm run preview
 - Coletas e vendas de ovos são registradas em unidades. Uma dúzia corresponde a 12 unidades.
 - Despesas de ração registram ingrediente, kg e valor total. Itens disponíveis: quirera de milho, milho em grão inteiro, núcleos de engorda/início/crescimento/postura, farelos de soja e trigo, calcário calcítico, ração pronta e outro ingrediente (detalhe em observações). Medicamentos e outros gastos registram quantidade e valor total.
 - Milho em grão inteiro é um item separado da quirera usada nas receitas: suas compras entram nas despesas e no resumo por ingrediente, sem alterar o preço da quirera na formulação. Para sacos, informe o peso total em kg conforme a embalagem e anote o número de sacos nas observações; não há peso de saco presumido.
+- Ao comprar um núcleo, é obrigatório informar a inclusão indicada no rótulo: 3%, 4% ou 5% (30, 40 ou 50 kg/t). A concentração fica no registro, histórico e backup; núcleos de mesma fase com concentrações distintas têm custos separados. Compras anteriores sem esse campo permanecem identificadas como concentração não informada, sem inferência automática.
 - O Financeiro agrupa compras para a ração por ingrediente, com kg, gasto total e custo médio ponderado por kg (gasto dividido pelos kg comprados). Registros antigos sem ingrediente permanecem em Ração sem detalhamento; não são classificados automaticamente. Novos backups mantêm esse campo e backups anteriores continuam compatíveis.
 - O detalhamento registra despesas e não contabiliza estoque ou consumo de ingredientes. A página Formulação de rações escala as quatro receitas informadas pelo proprietário, conforme detalhado abaixo; não realiza balanceamento nutricional. Formulações devem seguir orientação técnica e a indicação do fabricante do núcleo.
 - O financeiro mostra receitas e despesas acumuladas, sem estimativas ou receitas demonstrativas.
@@ -46,9 +47,13 @@ As receitas foram fornecidas pelo proprietário, com base padrão de 25 kg de qu
 | Postura | 60% | 23% | 5% | 8% | 4% | 110 g/ave/dia |
 | Engorda | 82% | 14% | — | — | 4% | 120 g/ave/dia |
 
-Total = kg de milho / percentual de milho. A quantidade de milho e o número de aves desta fase são ajustáveis para simulação. O total é calculado sem arredondamentos intermediários e exibido com 3 casas decimais; a mistura de postura usa exatamente 25 kg de milho e resulta em 41,667 kg, em vez dos 41,670 kg arredondados da tabela enviada. A seleção da fase é manual: início de 1 a 56 dias, crescimento de 57 a 126 dias e postura a partir de 127 dias, conforme correção do proprietário. Engorda não tem faixa etária informada.
+Na receita-base a 4%, total = kg de milho / percentual de milho. A quantidade de milho e o número de aves desta fase são ajustáveis para simulação. O total é calculado sem arredondamentos intermediários e exibido com 3 casas decimais; a mistura de postura usa exatamente 25 kg de milho e resulta em 41,667 kg, em vez dos 41,670 kg arredondados da tabela enviada. A seleção da fase é manual: início de 1 a 56 dias, crescimento de 57 a 126 dias e postura a partir de 127 dias, conforme correção do proprietário. Engorda não tem faixa etária informada.
 
-O núcleo de recria da tabela é associado ao item de compra Núcleo de crescimento, com aviso para conferir o produto. Todas as receitas usam inclusão de 4% (40 kg/t); o usuário informou que a inclusão varia por produto. A página não ajusta automaticamente essa concentração e orienta conferir rótulo e assistência técnica antes do uso.
+O núcleo de recria da tabela é associado ao item de compra Núcleo de crescimento, com aviso para conferir o produto. A calculadora permite escolher 3%, 4% ou 5% por receita. O padrão é 4%, conforme as receitas originais. A escolha de simulação permanece durante a navegação da sessão, mas não é persistida após recarregar.
+
+Ao alterar a concentração, a quantidade de milho e as massas dos demais ingredientes da receita-base permanecem fixas na escala escolhida. Se `B` é a massa de todos os ingredientes exceto o núcleo e `c` é a porcentagem escolhida, `núcleo = B × c / (100 − c)` e `total = B / (1 − c/100)`. Os percentuais finais dos demais ingredientes são recalculados sobre esse novo total. Não se aplica simplesmente 3% ou 5% sobre um total antigo que continha núcleo a 4%.
+
+O custo usa compras de núcleo da mesma fase e concentração; compras sem concentração não precificam automaticamente nenhum núcleo conhecido. O ajuste é matemático e não comprova equivalência nutricional de produtos a 3%, 4% e 5%. É necessário conferir o rótulo e validar com assistência técnica se a mistura com os demais ingredientes fixos é adequada.
 
 O custo é estimado pela média ponderada histórica de compras de cada ingrediente. Sem preço de algum item, o custo total fica pendente e não é tratado como zero. Compras sem ingrediente identificado não são usadas para precificar as receitas. A simulação não modifica o plantel nem lança novas despesas, produção ou baixas de estoque.
 
@@ -62,7 +67,7 @@ SENAR. Coleção 147 — *Avicultura: criação de frangos e poedeiras caipiras*
 
 ## Verificação
 
-`npm run build` valida a compilação. A validação funcional realizada com Chromium/Playwright cobre coleta, vendas de ovos e aves, despesa de ração, nascimento, mortalidade, transferência, bloqueio de saldo insuficiente, persistência após recarga, totais financeiros e layout móvel. Não modifica os dados do navegador do usuário.
+`npm run build` valida a compilação. `npm test` verifica as quatro receitas em diferentes escalas e concentrações, o percentual sobre a massa final, a preservação dos demais ingredientes e a separação dos preços históricos por fase e concentração. A validação funcional realizada com Chromium/Playwright cobre coleta, vendas de ovos e aves, despesa de ração, nascimento, mortalidade, transferência, bloqueio de saldo insuficiente, persistência após recarga, totais financeiros e layout móvel. Não modifica os dados do navegador do usuário.
 
 ## Publicação automática gratuita — Cloudflare Workers Builds
 
