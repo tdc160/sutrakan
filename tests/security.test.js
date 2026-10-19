@@ -107,3 +107,8 @@ test('administrative migration accepts a bounded legacy backup larger than an or
  assert.equal((await worker.fetch(req('/api/farm/import',body,admin),env)).status,409);
  const saved=await (await worker.fetch(req('/api/farm',null,{...admin,method:'GET'}),env)).json();assert.equal(saved.records.length,100);assert.deepEqual(saved.birds,[12,7,0,0,0]);
 });
+test('public update navigation serves the current shell without API caching or authentication',async()=>{
+ const {env}=fixture();let assetPath;env.ASSETS.fetch=async request=>{assetPath=new URL(request.url).pathname;return new Response('<html>current app</html>',{headers:{'Content-Type':'text/html'}})};
+ const response=await worker.fetch(new Request('https://santo.test/api/app/update'),env);assert.equal(response.status,200);assert.equal(assetPath,'/');assert.equal(response.headers.get('Cache-Control'),'no-store');assert.match(response.headers.get('Content-Type'),/text\/html/);assert.match(await response.text(),/current app/);
+ assert.equal((await worker.fetch(req('/api/app/update',{}),env)).status,404);
+});

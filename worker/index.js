@@ -8,7 +8,9 @@ async function sessionCall(env,path,data){if(!env.ADMIN_SESSIONS?.idFromName)thr
 async function currentSession(request,env){const token=readCookie(request);if(!sessionTokenSchema.safeParse(token).success)throw new HttpError(401);const key=await digest(token);const response=await sessionCall(env,'/read',{key});if(response.status===404)throw new HttpError(401);if(!response.ok)throw new HttpError(503);const session=await response.json();if(session.expiresAt<=Date.now()||(session.root||session.revision===undefined)&&session.username!==env.ADMIN_USERNAME)throw new HttpError(401);return {...session,role:session.role||'admin',key}}
 function csrfCheck(request,session){const csrf=request.headers.get('X-CSRF-Token');if(!csrfSchema.safeParse(csrf).success||csrf!==session.csrf)throw new HttpError(403)}
 export default {async fetch(request,env){const url=new URL(request.url);
- if(!url.pathname.startsWith('/api/')){const response=await env.ASSETS.fetch(request);const headers=new Headers(response.headers);for(const [key,value] of Object.entries(securityHeaders()))headers.set(key,value);return new Response(response.body,{status:response.status,statusText:response.statusText,headers})}
+ // This navigation stays outside the old service worker fallback (/api/ is denied).
+ // It serves the current app shell without deleting records, drafts or caches.
+ if(!url.pathname.startsWith('/api/')||url.pathname==='/api/app/update'&&request.method==='GET'){const updating=url.pathname==='/api/app/update';const response=await env.ASSETS.fetch(updating?new Request(new URL('/',url),request):request);const headers=new Headers(response.headers);if(updating)headers.set('Cache-Control','no-store');for(const [key,value] of Object.entries(securityHeaders()))headers.set(key,value);return new Response(response.body,{status:response.status,statusText:response.statusText,headers})}
  const requestId=crypto.randomUUID();
  try{
   // Reject unexpected query parameters; browser-supplied IP forwarding headers are never used.

@@ -1,3 +1,4 @@
+import {connectionMarkup,refreshConnection} from './offline.js';
 import {preserveOpenRecordDraft} from './record-form.js';
 const PENDING_LOGOUT='santo-expedito-pending-logout';
 let session=null,renderApplication=null,expiryTimer,logoutOperation;
@@ -12,7 +13,7 @@ async function request(path,options={}){
 
 function showLogin(message=''){
  clearTimeout(expiryTimer);session=null;
- document.querySelector('#app').innerHTML=`<main class="login-screen"><section class="login-card" aria-labelledby="login-title"><span class="tag">CHÁCARA SANTO EXPEDITO</span><h1 id="login-title">Entre para cuidar da sua criação.</h1><p>O acesso precisa de internet. Seus registros ficam na base compartilhada. Rascunhos continuam neste aparelho.</p><form id="login-form"><label>Usuário<input name="username" autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="64" required value="Talitom"></label><label>Senha<input name="password" type="password" autocomplete="current-password" minlength="8" maxlength="128" required></label><label class="show-password"><input type="checkbox" id="show-password">Mostrar senha</label><p id="login-error" role="alert"></p><button class="primary" type="submit">Entrar com segurança</button></form><p class="login-connection" id="login-connection" role="status"></p><p class="login-notice" id="login-notice"></p></section></main>`;
+ document.querySelector('#app').innerHTML=`<main class="login-screen"><section class="login-card" aria-labelledby="login-title"><span class="tag">CHÁCARA SANTO EXPEDITO</span><h1 id="login-title">Entre para cuidar <span class="login-title-tail">da sua criação.</span></h1><p>O acesso precisa de internet. Seus registros ficam na base compartilhada. Rascunhos continuam neste aparelho.</p><form id="login-form"><label>Usuário<input name="username" autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="64" required value="Talitom"></label><label>Senha<input name="password" type="password" autocomplete="current-password" minlength="8" maxlength="128" required></label><label class="show-password"><input type="checkbox" id="show-password">Mostrar senha</label><p id="login-error" role="alert"></p><button class="primary" type="submit">Entrar com segurança</button></form><p class="login-connection" id="login-connection" role="status"></p><p class="login-notice" id="login-notice"></p>${connectionMarkup()}</section></main>`;
  document.querySelector('#login-error').textContent=message;
  try{document.querySelector('#login-notice').textContent=localStorage.getItem('santo-expedito-record-draft-v1')?'Há um rascunho guardado neste aparelho. Você poderá retomá-lo após entrar.':''}catch{}
  const form=document.querySelector('#login-form');
@@ -20,7 +21,7 @@ function showLogin(message=''){
  form.onsubmit=async e=>{e.preventDefault();const button=form.querySelector('[type=submit]');button.disabled=true;button.textContent='Verificando acesso…';document.querySelector('#login-error').textContent='';
   try{if(!navigator.onLine)throw Error('Sem conexão. Conecte-se à internet para entrar.');await logoutOperation;await finishPendingLogout();const result=await request('/api/auth/login',{method:'POST',body:JSON.stringify({username:form.elements.username.value,password:form.elements.password.value})});if(!validUser(result))throw Error('Não foi possível confirmar o acesso.');form.elements.password.value='';acceptSession(result)}catch(error){document.querySelector('#login-error').textContent=error.message;button.disabled=false;button.textContent='Entrar com segurança'}
  };
- updateLoginConnection();
+ updateLoginConnection();refreshConnection();
 }
 function updateLoginConnection(){const el=document.querySelector('#login-connection');if(el)el.textContent=navigator.onLine?'Internet disponível para verificar o acesso.':'Sem conexão. O sistema exige uma verificação online para abrir.'}
 addEventListener('online',updateLoginConnection);addEventListener('offline',updateLoginConnection);
