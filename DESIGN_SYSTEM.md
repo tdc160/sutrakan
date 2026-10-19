@@ -100,3 +100,7 @@ Lucide, traço 1,7 px, sem preenchimento, tamanhos de 16 a 24 px; gráficos de b
 `design-system.css` contém os tokens e a camada visual comum; `style.css` mantém a estrutura e os estilos preexistentes. `ui.js` centraliza ícones e ilustração. Em componentes novos, use `var(--color-forest)`, `var(--space-5)` e as classes compartilhadas em vez de introduzir paletas ou estilos paralelos. As receitas, a chave de localStorage, backups, saldos e cálculos não mudam com a identidade visual.
 
 Validação realizada: build de produção; fluxos de despesas e backups; filtros do guia; cálculo de receitas; sete páginas em larguras de 360, 390, 768, 1024 e 1440 px; diálogo móvel; respeito a redução de movimento. Essas verificações não equivalem a uma auditoria completa de acessibilidade com leitores de tela.
+
+## Dashboard analítico
+
+Indicadores em quatro colunas no desktop e duas no celular. Gráficos em duas colunas a partir de 901 px, uma coluna abaixo desse ponto. Altura padrão de 260 px (240 px no celular), e altura ajustável para despesas com muitas categorias. Séries: receitas `#63823C`, despesas `#A3442C`, ovos `#63823C` com preenchimento a baixa opacidade. Dicas de valores usam fundo floresta e texto branco. Barras e pontos aceitam toque/clique, com detalhamento dos registros; tabelas e botões fornecem alternativas por teclado. Tooltips e animações não são a única forma de acessar valores. O plantel é rotulado como saldo atual; os demais gráficos seguem o filtro inclusivo de datas. Gráficos não criam dados artificiais.

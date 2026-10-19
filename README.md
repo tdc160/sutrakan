@@ -17,6 +17,19 @@ npm run dev -- --port 5173
 
 Para produção: `npm run build`. Para conferir a compilação: `npm run preview -- --port 4173`.
 
+## Dashboard interativo
+
+A Visão geral permite avaliar os registros com filtros de últimos 7, 30 ou 90 dias, mês atual, todo o histórico e intervalo personalizado. As datas são inclusivas e o dia atual usa o fuso America/Sao_Paulo.
+
+- Indicadores: receitas, despesas, resultado e ovos coletados no período.
+- Barras de receitas/despesas com séries que podem ser ocultadas pela legenda.
+- Evolução de coletas de ovos, diária ou mensal conforme a extensão do período.
+- Despesas por categoria ou ingrediente, separando concentrações de núcleos e preservando os itens não detalhados dos registros antigos.
+- Distribuição atual do plantel, incluindo aves a distribuir. Esse saldo é sempre atual e não representa saldo histórico do período escolhido.
+- Clique/toque nos gráficos ou nas listas acessíveis para ver os registros de origem. Limpar seleção restaura os registros do período. Datas também podem ser exploradas pela tabela Ver dados dos gráficos.
+
+Dias sem lançamentos mostram zero registrado, não produção ou movimento comprovadamente nulos. Períodos sem dados exibem orientação de cadastro, sem criar dados de demonstração. O detalhamento mostra até 100 registros recentes; o Histórico conserva a lista completa. O dashboard não altera os lançamentos, receitas de ração ou saldos. Gráficos Chart.js são incluídos no build, com fontes locais, tabelas de apoio e preferência de movimento reduzido. Instâncias são encerradas ao mudar de tela ou de filtro.
+
 ## Controles
 
 - Saldo inicial informado: aproximadamente 200 aves adultas a distribuir entre galpões e 70 pintinhos no galpão 1. Os demais três galpões começam sem aves atribuídas; não se presume sua distribuição física.

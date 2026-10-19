@@ -2,7 +2,7 @@ import {createElement,LayoutDashboard,Bird,Egg,ArrowUpRight,ArrowDownRight,Histo
 const symbols={'◫':LayoutDashboard,'♧':Bird,'◉':Egg,'↗':ArrowUpRight,'↘':ArrowDownRight,'≡':History,'☷':BookOpen,'⌂':Warehouse,'＋':Plus};
 export function icon(node){return createElement(node,{'aria-hidden':'true',focusable:'false','stroke-width':'1.7',width:'20',height:'20'}).outerHTML}
 export function decorateIcons(root=document){
-  root.querySelectorAll('.nav>span,.stat .icon,.flockicon,.brandmark,.empty>span,.topicicon,.guidebook,.topicexpand').forEach(el=>{
+  root.querySelectorAll('.nav>span,.stat .icon,.flockicon,.brandmark,.empty>span,.dash-empty>span,.topicicon,.guidebook,.topicexpand').forEach(el=>{
     const text=el.textContent.trim();const node=el.classList.contains('brandmark')?Sprout:symbols[text];
     if(node)el.innerHTML=icon(node);
   });
