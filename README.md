@@ -117,3 +117,7 @@ Após o deploy, entre como Talitom **no aparelho onde está o histórico complet
 Se não houver histórico, **Iniciar sem histórico (270 aves)** cria o ponto inicial configurado. Essa ação também exige confirmação. Se houver históricos diferentes em outros aparelhos, guarde os backups antes: não há fusão automática, pois poderia duplicar vendas e movimentações.
 
 Sem conexão é possível consultar a tela já aberta e preencher um rascunho. O botão Salvar só confirma após a escrita no servidor. Ao reconectar, revise e salve. O identificador acompanha o rascunho para permitir repetir uma tentativa cuja resposta se perdeu, sem duplicar o registro. Novos registros recebem autor e horário do servidor. Não existe fila automática de envios offline.
+
+### Atalhos no computador e no celular
+
+A tela de login, o rodapé e o Menu do celular oferecem **Atalho no computador** e **Atalho no celular**. Quando o navegador oferece instalação PWA, o usuário pode confirmar pelo diálogo. No Windows também é possível baixar `Santo Expedito.url` e mover o arquivo de Downloads para a Área de Trabalho. No iPhone/iPad, o diálogo orienta Safari → Compartilhar → Adicionar à Tela de Início. Android orienta o menu do Chrome. Navegadores sem instalação recebem instruções e endereço copiável, sem prometer criação automática de atalhos. A instalação mantém o login online e a base compartilhada.
