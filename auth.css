@@ -2,3 +2,4 @@
 
 .login-title-tail{display:block}.login-card .connection-state #connection-label{display:none}.login-card #install-update{width:100%;min-height:56px;font-size:16px;font-weight:700;margin-top:12px}
 .login-card .connection-state:has(#install-update[hidden]){display:none}
+#login-title{text-align:center}
