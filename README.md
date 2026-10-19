@@ -1,6 +1,6 @@
 # Chácara Santo Expedito
 
-Sistema em português para controle da criação de galinhas caipiras. Desenvolvido com JavaScript e Vite, sem dependência de servidor de dados.
+Sistema em português para controle da criação de galinhas caipiras. Desenvolvido com JavaScript e Vite, com login no Cloudflare Worker e registros locais no aparelho.
 
 ## Identidade visual
 
@@ -8,14 +8,22 @@ O sistema de design está documentado em [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md), c
 
 ## Executar
 
-Requer Node.js 22 ou superior e npm.
+Requer Node.js 24 e npm.
 
 ```sh
 npm ci --cache /tmp/npm-cache
-npm run dev -- --port 5173
+npm test
+npm run build
+npm run check:worker
 ```
 
-Para produção: `npm run build`. Para conferir a compilação: `npm run preview -- --port 4173`.
+Para executar a aplicação completa com autenticação, configure um segredo de desenvolvimento em `.dev.vars` (ignorado pelo Git) e execute `npm run dev:secure`. O comando inicia o runtime local Cloudflare na porta 8787. O Vite isolado (`npm run dev`) não fornece a API de login e não libera a aplicação sem autenticação. Credenciais de produção devem ser inseridas apenas nas configurações de segredo do Worker.
+
+## Login administrativo
+
+Usuário configurado: **Talitom**. Cadastre **ADMIN_PASSWORD** como **Secret** em Cloudflare → Workers & Pages → sutrakan → Settings → Variables and Secrets, e salve/implante. Nenhuma senha está no código. Sem esse segredo, o acesso é recusado. Login, sessão e rate limits usam o Worker e seu Durable Object; confira [SECURITY.md](SECURITY.md) para arquitetura, limites e rotas.
+
+A abertura do sistema exige verificação online, conforme preferência do proprietário. Registros locais e rascunhos são mantidos no aparelho; login não cria banco de dados remoto nem criptografa o localStorage. Uso em rede instável, leitura, navegação e proteção de rascunhos estão documentados em [MOBILE.md](MOBILE.md).
 
 ## Dashboard interativo
 
@@ -28,7 +36,7 @@ A Visão geral permite avaliar os registros com filtros de últimos 7, 30 ou 90 
 - Distribuição atual do plantel, incluindo aves a distribuir. Esse saldo é sempre atual e não representa saldo histórico do período escolhido.
 - Clique/toque nos gráficos ou nas listas acessíveis para ver os registros de origem. Limpar seleção restaura os registros do período. Datas também podem ser exploradas pela tabela Ver dados dos gráficos.
 
-Dias sem lançamentos mostram zero registrado, não produção ou movimento comprovadamente nulos. Períodos sem dados exibem orientação de cadastro, sem criar dados de demonstração. O detalhamento mostra até 100 registros recentes; o Histórico conserva a lista completa. O dashboard não altera os lançamentos, receitas de ração ou saldos. Gráficos Chart.js são incluídos no build, com fontes locais, tabelas de apoio e preferência de movimento reduzido. Instâncias são encerradas ao mudar de tela ou de filtro.
+Dias sem lançamentos mostram zero registrado, não produção ou movimento comprovadamente nulos. Períodos sem dados exibem orientação de cadastro, sem criar dados de demonstração. O detalhamento mostra até 100 registros recentes; o Histórico conserva a lista completa. O dashboard não altera os lançamentos, receitas de ração ou saldos. Gráficos Chart.js são carregados sob demanda na análise móvel, com fontes locais, tabelas de apoio e preferência de movimento reduzido. Instâncias são encerradas ao mudar de tela ou de filtro.
 
 ## Controles
 
@@ -45,7 +53,7 @@ Dias sem lançamentos mostram zero registrado, não produção ou movimento comp
 
 ## Armazenamento e limites
 
-Os registros ficam no localStorage deste navegador, sem login, sincronização ou servidor. Faça backups regularmente no Histórico. Limpar os dados do navegador remove os registros locais. Outra máquina ou navegador terá outro conjunto de dados.
+Os registros ficam no localStorage deste navegador, sem sincronização ou banco remoto para os dados da criação. A abertura exige login online no Worker. Faça backups regularmente no Histórico. Limpar os dados do navegador remove os registros locais. Outra máquina ou navegador terá outro conjunto de dados.
 
 Esta primeira versão não controla estoque físico de ovos, medicamentos, ração ou carcaças; compra de ração não equivale a consumo. Uma venda de aves abatidas reduz diretamente o plantel vivo: registre-a apenas uma vez por ave, pois não existe movimentação separada de abate. Não há edição/exclusão de lançamentos ou cadastro de lotes com idade nesta versão. O saldo inicial é aproximado e deve ser conferido antes do uso operacional.
 
@@ -83,6 +91,8 @@ SENAR. Coleção 147 — *Avicultura: criação de frangos e poedeiras caipiras*
 `npm run build` valida a compilação. `npm test` verifica as quatro receitas em diferentes escalas e concentrações, o percentual sobre a massa final, a preservação dos demais ingredientes e a separação dos preços históricos por fase e concentração. A validação funcional realizada com Chromium/Playwright cobre coleta, vendas de ovos e aves, despesa de ração, nascimento, mortalidade, transferência, bloqueio de saldo insuficiente, persistência após recarga, totais financeiros e layout móvel. Não modifica os dados do navegador do usuário.
 
 ## Publicação automática gratuita — Cloudflare Workers Builds
+
+O deploy agora inclui API, sessões persistentes em Durable Objects e rate limits nativos, definidos em `wrangler.jsonc`. A integração de produção requer o segredo ADMIN_PASSWORD no runtime.
 
 O usuário conectou o repositório `tdc160/sutrakan`, branch `main`, ao projeto Worker `sutrakan` no Cloudflare.
 

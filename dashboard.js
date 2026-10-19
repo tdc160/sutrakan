@@ -1,3 +1,4 @@
+import {decorateFieldTables} from './field-ui.js';
 import {decorateIcons,icon} from './ui.js';
 import {ArrowUpRight} from 'lucide';
 import {Chart,BarController,BarElement,LineController,LineElement,PointElement,DoughnutController,ArcElement,CategoryScale,LinearScale,Tooltip,Filler} from 'chart.js';
@@ -51,6 +52,7 @@ export function bindDashboard(state,navigate){
       document.querySelector('#dash-detail-subtitle').textContent=selection?.sub||'Selecione um gráfico para aprofundar a análise.';
       document.querySelector('#dash-clear').hidden=!selection;
       document.querySelector('#dash-detail-body').innerHTML=rows.length?`<p class="muted">${num(rows.length)} registro(s) · ${rows.length>100?'Exibindo os 100 mais recentes. Consulte o Histórico para todos os registros.':''}</p><div class="tablewrap"><table><thead><tr><th>Data</th><th>Tipo</th><th>Descrição</th><th>Quantidade</th><th>Valor</th></tr></thead><tbody>${rows.slice().sort((a,b)=>b.date.localeCompare(a.date)).slice(0,100).map(r=>`<tr><td>${full(r.date)}</td><td>${esc(r.type)}</td><td>${esc(r.ingredient?feedItemLabel(r):r.category)}${r.note?`<small class="rownote">${esc(r.note)}</small>`:''}</td><td>${num(r.qty)}${r.type==='Despesa'&&r.category==='Ração'?' kg':''}</td><td>${['Venda','Despesa'].includes(r.type)?money(r.value):'—'}</td></tr>`).join('')}</tbody></table></div>`:'<div class="dash-empty"><b>Nenhum registro para esta seleção</b><p>Escolha outro período ou adicione um registro pelo botão Novo registro.</p></div>';
+      decorateFieldTables(document.querySelector('#dash-detail-body'));
     }
     // Accessible text alternatives expose every value and allow the same drill-down without a pointer.
     const breakdowns=`<details class="dash-data"><summary>Ver despesas e receitas por categoria</summary><div class="dash-breakdowns"><div><h3>Despesas · ${expenseMode==='ingredient'?'por ingrediente':'por categoria'}</h3>${data.categories.length?data.categories.map(([name,value],i)=>`<button data-expense-detail="${i}"><span>${esc(name)}</span><b>${money(value)}</b></button>`).join(''):'<p class="muted">Sem despesas no período.</p>'}</div><div><h3>Receitas por produto</h3>${data.sales.length?data.sales.map(([name,value],i)=>`<button data-sale-detail="${i}"><span>${esc(name)}</span><b>${money(value)}</b></button>`).join(''):'<p class="muted">Sem vendas no período.</p>'}</div></div></details>`;
@@ -63,7 +65,7 @@ export function bindDashboard(state,navigate){
     document.querySelector('#dash-expense-mode').onchange=e=>{expenseMode=e.target.value;selection=null;paint()};
     host.querySelectorAll('[data-dashboard-page]').forEach(b=>b.onclick=()=>navigate(b.dataset.dashboardPage));
     updateDetails();
-    decorateIcons(host);
+    decorateIcons(host);decorateFieldTables(host);
   };
   document.querySelector('#dash-period').onchange=e=>{period=e.target.value;selection=null;document.querySelector('#dash-custom').hidden=period!=='custom';if(period==='custom'){start=start||today.slice(0,7)+'-01';end=end||today;document.querySelector('#dash-start').value=start;document.querySelector('#dash-end').value=end}paint()};
   document.querySelector('#dash-start').onchange=e=>{start=e.target.value;selection=null;paint()};

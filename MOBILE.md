@@ -1,0 +1,27 @@
+# Uso no campo
+
+## Leitura e toque
+
+A versão de até 700 px tem fundo sólido, contraste maior e texto principal de 16 px, com legendas de 14–15 px. Ações principais medem 56–64 px e têm separação de 12 px. A barra inferior oferece Início, Ovos, Registrar e Menu, sem depender de rolagem horizontal para encontrar telas. Menu reúne os demais destinos em linhas grandes.
+
+A tela inicial prioriza ovos de hoje, vendas, gastos e plantel atual, com atalhos de coleta, venda e despesa. Os gráficos ficam em “Abrir dashboard completo” e o código da análise é carregado sob demanda; isso reduz o JavaScript necessário antes da interação principal. Tabelas viram cartões com rótulos no celular, evitando leitura de colunas fora da tela. Os dados e recursos de desktop continuam disponíveis.
+
+## Formulários
+
+Os atalhos já escolhem o tipo de registro. Quantidades e dinheiro pedem teclado numérico/decimal, data começa em hoje e observações ficam em seção opcional. Origem de saídas precisa ser escolhida explicitamente para evitar retirar aves do galpão errado. Venda de ovos não pede origem. Núcleos pedem concentração, e outros ingredientes não mantêm esse campo.
+
+O rascunho é salvo em uma chave separada (`santo-expedito-record-draft-v1`) a cada entrada, sem virar um lançamento. Cada tipo de registro guarda seus campos separadamente quando se troca o tipo. “Guardar e fechar” preserva; “Descartar rascunho” exige confirmação e não apaga registros. Salvar um registro com sucesso limpa o rascunho somente após a escrita dos dados. Erros mantêm o formulário e reabilitam a ação. Pedidos de login têm prazo de 12 segundos, com mensagem de conexão e nova tentativa sem apagar os campos. Dados salvos ilegíveis ou inválidos não são substituídos por um plantel vazio: a tela de recuperação permite baixar a cópia original e restaurar um backup validado.
+
+No celular o formulário ocupa a tela, acompanha a altura visível e deixa Salvar no rodapé aderente. Se o armazenamento falhar, o formulário avisa e não fecha como se o rascunho estivesse salvo. Uma cópia de memória ajuda a retomar na mesma página; falta de espaço ou bloqueio do armazenamento impede garantia de recuperação após fechar o navegador. Não ignore esse aviso.
+
+## Conexão, sessão e atualização
+
+A escolha do proprietário é exigir verificação **online** para abrir o sistema. Portanto, mesmo preparado para quedas de sinal, uma nova abertura/reload sem conexão fica no login. A sessão tem validade de uma hora e é verificada no servidor ao abrir; consulte SECURITY.md.
+
+Após entrar, a tela já aberta e os registros locais funcionam durante uma perda temporária de sinal enquanto a sessão está válida. O service worker prepara arquivos e fontes do próprio domínio e tenta recuperar a preparação quando a conexão retorna. O indicador só afirma preparação após a ativação. Nenhuma API de sessão, senha ou dado administrativo é colocada no cache offline.
+
+O novo aplicativo pede uma ação explícita para atualizar; não recarrega um formulário automaticamente. Um rascunho existente é informado antes de aceitar a atualização e pode ser retomado depois de entrar novamente. O cache de arquivos não é backup dos dados: continue exportando pelo Histórico. Não há sincronização de registros com servidor.
+
+## Verificações
+
+Testes em Chromium móvel verificam navegação por polegar, telas de 360/390 px, formulário com viewport reduzido a 440 px, rascunho por tipo, interrupção/reload, falha de armazenamento e preservação de registros. Testes de produção verificam service worker real, cache HTTP limpo, acesso sem rede, atualização sob demanda e autenticação no runtime Cloudflare local. Testes de bancada não substituem avaliação física sob sol nem a conferência em Safari/iPhone e outros aparelhos de uso real.

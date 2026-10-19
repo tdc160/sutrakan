@@ -58,7 +58,7 @@ Base de 8 px, com meio passo de 4 px para detalhes. Escala: `4, 8, 12, 16, 24, 3
 - Indicadores: quatro colunas com gap de 16 px. Cards têm padding de 24 px e raio de 16 px.
 - Conteúdo: grade de duas colunas para plantel e financeiro; tabelas ocupam a largura da seção.
 - 701–1000 px: navegação em trilho de 80 px; indicadores em duas colunas; área principal com padding de 24 px.
-- Até 700 px: navegação inferior horizontal de 80 px aproximadamente, com rolagem para os sete destinos; conteúdo sem margem lateral de navegação, padding de 20 px e reserva inferior de 96 px. A área segura do dispositivo é respeitada.
+- Até 700 px: navegação inferior de quatro ações (Início, Ovos, Registrar, Menu), com destinos adicionais no menu; conteúdo sem margem lateral de navegação, padding de 16 px e reserva inferior para a barra e área segura. A área segura do dispositivo é respeitada.
 - Celular: indicadores e receitas em duas colunas; listas extensas, rotina e calculadora em uma coluna. Tabelas largas rolam dentro do card, sem alargar a página.
 
 Os raios (8, 12, 16 e 24 px), bordas (1 px) e ícones (16, 20, 24 px) são escalas de componente, não regras de distância entre blocos.
@@ -104,3 +104,7 @@ Validação realizada: build de produção; fluxos de despesas e backups; filtro
 ## Dashboard analítico
 
 Indicadores em quatro colunas no desktop e duas no celular. Gráficos em duas colunas a partir de 901 px, uma coluna abaixo desse ponto. Altura padrão de 260 px (240 px no celular), e altura ajustável para despesas com muitas categorias. Séries: receitas `#63823C`, despesas `#A3442C`, ovos `#63823C` com preenchimento a baixa opacidade. Dicas de valores usam fundo floresta e texto branco. Barras e pontos aceitam toque/clique, com detalhamento dos registros; tabelas e botões fornecem alternativas por teclado. Tooltips e animações não são a única forma de acessar valores. O plantel é rotulado como saldo atual; os demais gráficos seguem o filtro inclusivo de datas. Gráficos não criam dados artificiais.
+
+## Adaptação de campo (celular)
+
+A camada `field.css` aumenta o corpo e os controles móveis: texto principal 16 px, apoio 14–15 px, formulário 17–18 px, ações de 56–64 px. Texto #173721 / apoio #40513E sobre branco; bordas #BDC9B1. A navegação inferior tem quatro ações fixas e menu para os demais destinos. A tela inicial mostra o dia atual; análises extensas ficam em seção opcional. Tabelas recebem cartões com rótulos. Modal móvel usa altura visível e rodapé aderente ao teclado. Login tem tela própria de alto contraste; mensagens de rede distinguem preparação, queda de sinal, necessidade de login online e atualização disponível. Ver MOBILE.md e SECURITY.md para comportamento e limites.
