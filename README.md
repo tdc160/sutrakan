@@ -18,7 +18,9 @@ Para produção: `npm run build`. Para conferir a compilação: `npm run preview
 - Saldo inicial informado: aproximadamente 200 aves adultas a distribuir entre galpões e 70 pintinhos no galpão 1. Os demais três galpões começam sem aves atribuídas; não se presume sua distribuição física.
 - Nascimentos, mortalidade, transferências e vendas de aves atualizam o plantel. As saídas são limitadas ao saldo disponível.
 - Coletas e vendas de ovos são registradas em unidades. Uma dúzia corresponde a 12 unidades.
-- Despesas de ração registram kg e valor total; medicamentos e outros gastos registram quantidade e valor total.
+- Despesas de ração registram ingrediente, kg e valor total. Itens disponíveis: quirera de milho, núcleos de engorda/início/crescimento/postura, farelos de soja e trigo, calcário calcítico, ração pronta e outro ingrediente (detalhe em observações). Medicamentos e outros gastos registram quantidade e valor total.
+- O Financeiro agrupa compras para a ração por ingrediente, com kg, gasto total e custo médio ponderado por kg (gasto dividido pelos kg comprados). Registros antigos sem ingrediente permanecem em Ração sem detalhamento; não são classificados automaticamente. Novos backups mantêm esse campo e backups anteriores continuam compatíveis.
+- O detalhamento registra despesas, não formula dietas, não calcula proporções da mistura e não contabiliza estoque ou consumo de ingredientes. Formulações devem seguir orientação técnica e a indicação do fabricante do núcleo.
 - O financeiro mostra receitas e despesas acumuladas, sem estimativas ou receitas demonstrativas.
 - Histórico permite exportar e restaurar backup JSON. Restaurar substitui os registros após confirmação.
 
