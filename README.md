@@ -36,23 +36,16 @@ SENAR. Coleção 147 — *Avicultura: criação de frangos e poedeiras caipiras*
 
 `npm run build` valida a compilação. A validação funcional realizada com Chromium/Playwright cobre coleta, vendas de ovos e aves, despesa de ração, nascimento, mortalidade, transferência, bloqueio de saldo insuficiente, persistência após recarga, totais financeiros e layout móvel. Não modifica os dados do navegador do usuário.
 
-## Publicação automática gratuita — Cloudflare Pages
+## Publicação automática gratuita — Cloudflare Workers Builds
 
-O repositório de origem é `tdc160/sutrakan`, branch de produção `main`.
+O usuário conectou o repositório `tdc160/sutrakan`, branch `main`, ao projeto Worker `sutrakan` no Cloudflare.
 
-1. Entre na sua conta Cloudflare e abra **Workers & Pages**.
-2. Crie um projeto **Pages**, escolhendo importar/conectar um repositório Git existente.
-3. Autorize a integração GitHub para `tdc160/sutrakan` e selecione esse repositório.
-4. Configure:
-   - Nome do projeto: `santo-expedito` (ou outro disponível).
-   - Branch de produção: `main`.
-   - Framework: Vite (ou sem framework, com os comandos abaixo).
-   - Comando de build: `npm run build`.
-   - Diretório de saída: `dist`.
-   - Diretório raiz: raiz do repositório.
-   - Versão do Node: 24, definida em `.node-version`.
-5. Salve e faça o primeiro deploy. O painel informará o endereço HTTPS em `pages.dev`.
+- Comando de build: `npm run build`.
+- Comando de deploy: `npx wrangler deploy`.
+- Diretório raiz: raiz do repositório.
+- Configuração: `wrangler.jsonc`; arquivos estáticos: `dist`.
+- Node.js: 24, definido em `.node-version`.
 
-A integração instala as dependências e faz a build a cada push em `main`. Não envie `dist` ou `node_modules` ao GitHub. O workflow GitHub Actions também verifica a build, mas o deploy é feito pela integração Cloudflare Pages. Uma build que falha não substitui o último deploy bem-sucedido.
+Mantenha a branch de produção `main` e as builds automáticas habilitadas em **Workers & Pages → sutrakan → Settings → Build**. A integração compila e publica os pushes na branch configurada. O workflow GitHub Actions verifica a build separadamente. Não envie `dist` ou `node_modules` ao GitHub. Se o deploy falhar, consulte os logs do Cloudflare; um push bem-sucedido não confirma publicação.
 
-A hospedagem entrega somente os arquivos do aplicativo. Ela não adiciona banco de dados, autenticação ou sincronização. Mantenha o endereço definitivo: dados do localStorage pertencem ao navegador e à origem HTTPS; mudar de endereço exige exportar e restaurar o backup. Os limites e termos do plano gratuito são os do provedor.
+O endereço definitivo aparece no painel Cloudflare após o deploy. A hospedagem não adiciona banco de dados ou sincronização. Os dados do localStorage pertencem ao navegador e à origem HTTPS; mudar de endereço exige exportar e restaurar o backup. Os limites e termos do plano gratuito são os do provedor.
