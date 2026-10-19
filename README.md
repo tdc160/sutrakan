@@ -2,6 +2,10 @@
 
 Sistema em português para controle da criação de galinhas caipiras. Desenvolvido com JavaScript e Vite, sem dependência de servidor de dados.
 
+## Identidade visual
+
+O sistema de design está documentado em [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md), com paleta hexadecimal, tipografia local, grid de 8 px, componentes, estados, animações e comportamento responsivo. Tokens e estilos comuns estão em `design-system.css`; ícones e ilustração em `ui.js`. A referência Granvo solicitada retornou HTTP 403 no ambiente: a identidade aplicada é uma proposta própria, sem atribuir cores ou fontes não verificadas à referência. Fontes Manrope e DM Serif Display são servidas pelo próprio site; ícones Lucide. Licenças em `public/licenses`.
+
 ## Executar
 
 Requer Node.js 22 ou superior e npm.

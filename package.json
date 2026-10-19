@@ -1,1 +1,1 @@
-{"name":"santo-expedito","version":"1.0.0","private":true,"type":"module","scripts":{"dev":"vite --host 0.0.0.0","build":"vite build","preview":"vite preview --host 0.0.0.0"},"devDependencies":{"vite":"^6.4.1"}}
+{"name":"santo-expedito","version":"1.0.0","private":true,"type":"module","scripts":{"dev":"vite --host 0.0.0.0","build":"vite build","preview":"vite preview --host 0.0.0.0"},"devDependencies":{"vite":"^6.4.1"},"dependencies":{"@fontsource/dm-serif-display":"^5.3.0","@fontsource/manrope":"^5.3.0","lucide":"^1.59.0"}}
