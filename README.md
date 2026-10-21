@@ -165,3 +165,14 @@ Abra **Itens de despesa** no menu (no celular, **Menu → Itens de despesa**). A
 Em **Novo registro → Despesa**, escolha o grupo e o item. Nos grupos Medicamentos/Outros é possível manter um lançamento sem detalhamento para compatibilidade. Em Ração, os ingredientes antigos e os novos itens ficam na mesma lista; o peso é em kg. Compras posteriores à abertura do estoque aumentam o saldo individual do ingrediente, e ajustes de consumo avulso continuam disponíveis em Produção de ração. Cadastrar um ingrediente não o inclui automaticamente nas quatro formulações. Medicamentos e Outros detalham despesas, sem criar controle de saldo físico desses grupos.
 
 O item e seu grupo acompanham o lançamento, os relatórios e os backups. O cadastro não altera despesas antigas e não cria uma despesa automaticamente. Nesta etapa, o catálogo oferece criação e consulta; nomes e grupos de itens já cadastrados permanecem estáveis.
+
+### Relatórios financeiros e de estoque
+
+Abra **Relatórios** no menu (no celular, **Menu → Relatórios**), escolha Financeiro ou Estoque, informe as datas e toque em **Gerar relatório**. A consulta é da propriedade ativa e usa o snapshot central carregado, cuja versão é identificada no cabeçalho. Usuários autorizados podem consultar/exportar os mesmos dados a que já têm acesso.
+
+- **Financeiro:** receitas, despesas, resultado, totais por grupo e todos os lançamentos do período, pela data informada no registro. Produção de ração e ajustes físicos não viram uma segunda despesa. O resultado não é saldo bancário e não inclui valores não lançados.
+- **Estoque:** saldos atuais de ingredientes/rações em kg; movimentações filtradas por data efetiva; pendências atuais separadas, sem desconto no saldo. O período não transforma o saldo atual em um saldo histórico. Compras usam a data de inclusão no sistema (ou a data do lançamento em registros antigos sem autoria/data); consumo usa a data em que a baixa foi efetivada. A coluna de referência informa o dia de consumo ou a data original da compra.
+- **Exportar CSV:** gera arquivo UTF-8 com separador ponto e vírgula, nome/ID da propriedade, período e data de consulta. Valores numéricos usam vírgula decimal. Textos potencialmente interpretados como fórmulas são neutralizados para planilhas.
+- **Imprimir / Salvar PDF:** abre a impressão do navegador; escolha salvar em PDF quando disponível. A impressão mostra somente o relatório, com tabelas e cores de leitura.
+
+Alterar filtros desabilita a exportação até gerar novamente. Sem abertura de estoque, o relatório orienta iniciar em Produção de ração; compras históricas não são tratadas como saldo físico. Não há estoque físico de medicamentos, ovos ou carcaças nesta etapa.

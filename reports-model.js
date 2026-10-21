@@ -1,0 +1,18 @@
+import {inventory,mg,kg} from './feed-inventory.js';
+import {recipes} from './feed-model.js';
+import {feedItemLabel} from './feed-items.js';
+export const reportDay=value=>new Date(value).toLocaleDateString('en-CA',{timeZone:'America/Sao_Paulo'});
+export function reportRange(start,end){const valid=value=>/^\d{4}-\d{2}-\d{2}$/.test(value)&&Number.isFinite(Date.parse(value+'T12:00:00Z'))&&new Date(value+'T12:00:00Z').toISOString().slice(0,10)===value;if(!valid(start)||!valid(end)||start>end||end>reportDay(Date.now()))throw Error('Informe um período válido, sem datas futuras.');return {start,end}}
+export function financialReport(state,start,end){reportRange(start,end);const rows=state.records.filter(r=>['Venda','Despesa'].includes(r.type)&&r.date>=start&&r.date<=end).slice().sort((a,b)=>a.date.localeCompare(b.date));let income=0,expense=0;const groups=new Map();for(const row of rows){const cents=Math.round(row.value*100);if(row.type==='Venda')income+=cents;else expense+=cents;const key=row.type+' · '+row.category;groups.set(key,(groups.get(key)||0)+cents)}return {rows,income:income/100,expense:expense/100,balance:(income-expense)/100,groups:[...groups].map(([group,cents])=>({group,value:cents/100}))}}
+export function stockReport(state,start,end){reportRange(start,end);if(!state.feed)return null;const feed=state.feed,balances=inventory(state),movements=[],phase=id=>recipes.find(r=>r.id===id)?.name||id;
+ const add=(date,item,kind,delta,by='',reference='')=>{if(delta!==0&&date>=start&&date<=end)movements.push({date,item,kind,deltaKg:kg(mg(delta)),by,reference})};
+ const openingDay=reportDay(feed.openedAt);for(const item of feed.openingIngredients)add(openingDay,feedItemLabel(item),'Saldo de abertura',item.kg,feed.openedBy);for(const item of feed.openingRations)add(openingDay,'Ração '+phase(item.recipe),'Saldo de abertura',item.kg,feed.openedBy);
+ for(const record of state.records.slice(feed.purchaseStart))if(record.type==='Despesa'&&record.category==='Ração'&&record.ingredient)add(record.createdAt?reportDay(record.createdAt):record.date,feedItemLabel(record),'Compra',record.qty,record.createdBy,record.date);
+ for(const batch of feed.productions){const day=reportDay(batch.createdAt);for(const item of batch.items)add(day,feedItemLabel(item),'Uso na mistura',-item.kg,batch.createdBy);add(day,'Ração '+phase(batch.recipe),'Produção',batch.totalKg,batch.createdBy)}
+ for(const entry of feed.adjustments)add(reportDay(entry.createdAt),entry.target==='ingredient'?feedItemLabel(entry):'Ração '+phase(entry.recipe),'Ajuste',entry.deltaKg,entry.createdBy,entry.reason);
+ for(const entry of feed.daily)if(entry.status==='posted')add(entry.postedAt?reportDay(entry.postedAt):entry.day,'Ração '+phase(entry.recipe),'Consumo diário',-entry.kg,'Rotina automática',entry.day+' · '+entry.name);
+ const raw=[...balances.raw].map(([key,value])=>({item:key.replace(/::(3|4|5)$/,' · $1%').replace('::unknown',' · concentração não informada'),kind:'Ingrediente',kg:kg(value)})),rations=[...balances.rations].map(([id,value])=>({item:'Ração '+phase(id),kind:'Ração pronta',kg:kg(value)}));
+ return {balances:[...raw,...rations],movements:movements.sort((a,b)=>a.date.localeCompare(b.date)),pending:feed.daily.filter(e=>e.status==='pending').map(e=>({...e,item:'Ração '+phase(e.recipe)}))};
+}
+// Spreadsheet cells containing user text must never be interpreted as formulas.
+export function reportCSV(rows){return '\uFEFF'+rows.map(row=>row.map(value=>{let text=typeof value==='number'?String(value).replace('.',','):String(value??'');if(typeof value!=='number'&&/^[\s\u0000-\u001f]*[=+@-]/.test(text))text="'"+text;return '"'+text.replaceAll('"','""')+'"'}).join(';')).join('\r\n')}
