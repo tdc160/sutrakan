@@ -1,6 +1,6 @@
 /* Persistent, thumb-sized preference. No page reload or form reconstruction. */
 .theme-control{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:12px;padding:12px 20px;background:var(--color-canvas);color:var(--color-text)}
-.theme-control label{margin:0;font-size:16px;font-weight:700}.theme-control select{width:auto;min-width:150px;min-height:56px;margin:0;padding:12px;font-size:16px;border:1px solid var(--color-border);border-radius:12px;background:var(--color-surface);color:var(--color-text)}.theme-feedback:empty{display:none}.theme-feedback{width:100%;text-align:center;font-size:14px}
+.theme-feedback:empty{display:none}.theme-feedback{width:100%;text-align:center;font-size:14px}
 @media(min-width:701px){.theme-control{margin-left:256px}body:has(.login-screen) .theme-control{margin-left:0}.login-screen{min-height:calc(100dvh - 100px)}}
 @media(max-width:700px){.theme-control{padding:8px 16px}.login-screen{min-height:auto}}
 :root[data-theme=dark]{--color-canvas:#101b16;--color-surface:#192a21;--color-text:#edf5e9;--color-muted:#bdcdb6;--color-border:#526a56;--color-soft:#293f2d;--color-warning:#ffd48b;--color-warning-soft:#44371f;--color-danger:#ffbaa6;--color-danger-soft:#452c25;--color-focus:#d7eea2;--shadow-card:none;--shadow-overlay:0 24px 80px #0008;color-scheme:dark}
@@ -31,3 +31,14 @@
 /* Keep the primary action legible over lime, including more specific form rules. */
 :root[data-theme=dark] button.primary,:root[data-theme=dark] #recordform button.primary,:root[data-theme=dark] #shortcut-dialog button.primary{background:#d7eea2;color:#163f2d}
 :root[data-theme=dark] .primary{color:#163f2d!important}
+
+/* Three independent modes, one selected icon; native buttons retain keyboard access. */
+.theme-toggle{display:flex;gap:4px;padding:5px;border:1px solid var(--color-border);border-radius:999px;background:var(--color-soft)}
+.theme-toggle button{display:grid;place-items:center;width:56px;height:56px;min-height:56px;padding:0;border:2px solid transparent;border-radius:50%;background:transparent;color:var(--color-text);cursor:pointer}
+.theme-toggle button svg{width:24px;height:24px;stroke-width:2}
+.theme-toggle button:hover{background:var(--color-surface)}
+.theme-toggle button[aria-pressed=true]{background:var(--color-surface);color:var(--color-forest);border-color:var(--color-forest);box-shadow:0 2px 6px #0002}
+:root[data-theme=dark] .theme-toggle button{color:#edf5e9}
+:root[data-theme=dark] .theme-toggle button[aria-pressed=true]{background:#d7eea2;color:#163f2d;border-color:#d7eea2}
+.theme-toggle button:focus-visible{outline:3px solid var(--color-focus);outline-offset:3px}
+:root[data-theme=dark] .theme-toggle button[aria-pressed=true]{color:#163f2d!important}
