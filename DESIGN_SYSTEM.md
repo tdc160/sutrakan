@@ -108,3 +108,7 @@ Indicadores em quatro colunas no desktop e duas no celular. Gráficos em duas co
 ## Adaptação de campo (celular)
 
 A camada `field.css` aumenta o corpo e os controles móveis: texto principal 16 px, apoio 14–15 px, formulário 17–18 px, ações de 56–64 px. Texto #173721 / apoio #40513E sobre branco; bordas #BDC9B1. A navegação inferior tem quatro ações fixas e menu para os demais destinos. A tela inicial mostra o dia atual; análises extensas ficam em seção opcional. Tabelas recebem cartões com rótulos. Modal móvel usa altura visível e rodapé aderente ao teclado. Login tem tela própria de alto contraste; mensagens de rede distinguem preparação, queda de sinal, necessidade de login online e atualização disponível. Ver MOBILE.md e SECURITY.md para comportamento e limites.
+
+### Preferência de aparência
+
+O seletor Aparência, acima do conteúdo e disponível antes do login, oferece Claro, Escuro e Automático (preferência do aparelho). A escolha fica em `rural-theme`, no navegador, sem alterar dados da propriedade. `public/theme-init.js` aplica a preferência antes da folha de estilos, sob CSP sem script inline. `theme.js` acompanha alterações do aparelho/abas e troca tokens sem reconstruir formulários; falhas de armazenamento não impedem a troca. O tema escuro usa fundo #101b16, superfície #192a21, texto #edf5e9 e destaque #d7eea2. Os gráficos atualizam eixos e grades ao trocar o tema.

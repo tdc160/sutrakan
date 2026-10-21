@@ -1,0 +1,2 @@
+// Runs before the stylesheet: preferences never contain account or farm data.
+(()=>{let preference='system';try{const saved=localStorage.getItem('rural-theme');if(['light','dark','system'].includes(saved))preference=saved}catch{}const dark=preference==='dark'||(preference==='system'&&matchMedia('(prefers-color-scheme: dark)').matches);document.documentElement.dataset.theme=dark?'dark':'light';document.documentElement.style.colorScheme=dark?'dark':'light'})();
