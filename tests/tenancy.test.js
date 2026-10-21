@@ -102,3 +102,31 @@ test('deleting the legacy farm does not recreate it or prevent general administr
  const pending=[];await worker.scheduled({},env,{waitUntil(promise){pending.push(promise)}});await Promise.all(pending);
  assert.equal((await call(env,'/api/farm',undefined,session)).status,403);
 });
+test('shed lifecycle preserves stable history and transfers birds atomically with owner password confirmation',async()=>{
+ const {env}=platformFixture();env.LOGIN_LIMITER={limit:async()=>({success:true})};const owner=await register(env,'ShedOwner','Galpões'),auth=owner.auth,pid=owner.property.id;
+ const farm=async()=> (await call(env,'/api/farm',undefined,auth,pid)).json();
+ let state=await farm();let command={id:crypto.randomUUID(),action:'create',revision:state.revision,name:'Postura nova'};
+ let response=await call(env,'/api/farm/sheds',command,auth,pid);assert.equal(response.status,200);state=await response.json();assert.equal(state.birds.length,6);assert.equal(state.sheds[5].name,'Postura nova');
+ assert.equal((await call(env,'/api/farm/sheds',command,auth,pid)).status,200);
+ response=await call(env,'/api/farm/records',{id:crypto.randomUUID(),type:'Transferência',category:'Transferência',qty:5,value:0,date:new Date().toLocaleDateString('en-CA',{timeZone:'America/Sao_Paulo'}),note:'Para o novo galpão',from:1,to:5},auth,pid);assert.equal(response.status,200);state=await response.json();
+ command={id:crypto.randomUUID(),action:'edit',revision:state.revision,shed:5,name:'Postura editada'};response=await call(env,'/api/farm/sheds',command,auth,pid);assert.equal(response.status,200);state=await response.json();
+ const deletion={id:crypto.randomUUID(),action:'delete',revision:state.revision,shed:5,password:owner.password};
+ assert.equal((await call(env,'/api/farm/sheds',{...deletion,password:'WrongPassword'},auth,pid)).status,403);
+ assert.equal((await call(env,'/api/farm/sheds',deletion,auth,pid)).status,409);
+ assert.equal((await call(env,'/api/farm/sheds',{...deletion,destination:5},auth,pid)).status,409);
+ response=await call(env,'/api/farm/sheds',{...deletion,destination:2},auth,pid);assert.equal(response.status,200);state=await response.json();assert.equal(state.birds[5],0);assert.equal(state.birds[2],5);assert.equal(state.sheds[5].active,false);assert.equal(state.records.at(-1).from,5);assert.equal(state.records.at(-1).to,2);
+ assert.equal((await call(env,'/api/farm/sheds',{...deletion,destination:2},auth,pid)).status,200);
+ assert.equal((await call(env,'/api/farm/records',{id:crypto.randomUUID(),type:'Nascimento',category:'Nascimento',qty:1,value:0,date:state.records.at(-1).date,note:'Inválido',to:5},auth,pid)).status,409);
+ assert.equal(JSON.stringify(state).includes(owner.password),false);
+ response=await call(env,'/api/farm/sheds',{id:crypto.randomUUID(),action:'create',revision:state.revision,name:'Outro'},auth,pid);state=await response.json();assert.equal(state.sheds.at(-1).id,6);assert.equal(state.sheds[5].name,'Postura editada');
+});
+test('operators and other tenants cannot manage sheds; stale state and zero slot deletion are rejected',async()=>{
+ const {env}=platformFixture(),owner=await register(env,'ShedAdmin','Local'),other=await register(env,'OtherShed','Outro'),pid=owner.property.id;
+ const user={username:'ShedOperator',name:'Equipe',role:'operator',password:crypto.randomUUID()};await call(env,'/api/users',user,owner.auth,pid);const operator=await login(env,user.username,user.password);
+ const command={id:crypto.randomUUID(),action:'create',revision:1,name:'Novo galpão'};
+ assert.equal((await call(env,'/api/farm/sheds',command,operator,pid)).status,403);
+ assert.equal((await call(env,'/api/farm/sheds',command,other.auth,pid)).status,403);
+ assert.equal((await call(env,'/api/farm/sheds',command,{cookie:owner.auth.cookie},pid)).status,403);
+ assert.equal((await call(env,'/api/farm/sheds',{...command,revision:0},owner.auth,pid)).status,409);
+ assert.equal((await call(env,'/api/farm/sheds',{id:crypto.randomUUID(),action:'delete',revision:1,shed:0,password:owner.password},owner.auth,pid)).status,400);
+});

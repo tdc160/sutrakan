@@ -1,3 +1,4 @@
+import {shedsSchema,shedEventsSchema} from './shed-schemas.js';
 import {propertyIdSchema,propertySchema} from './property-schemas.js';
 import {feedStateSchema} from './feed-schemas.js';
 import {z} from 'zod';
@@ -12,7 +13,7 @@ const noControls=s=>!/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/u.test(s);
 const text=max=>z.string().max(max).refine(noControls).transform(s=>s.normalize('NFC'));
 export const loginSchema=z.object({username:z.string().min(1).max(64).regex(/^[A-Za-z0-9_.-]+$/),password:z.string().min(8).max(128)}).strict();
 export const emptySchema=z.object({}).strict();
-const place=z.number().int().min(0).max(4);
+const place=z.number().int().min(0).max(200);
 const validDate=s=>/^\d{4}-\d{2}-\d{2}$/.test(s)&&Number.isFinite(Date.parse(s+'T00:00:00Z'))&&new Date(s+'T00:00:00Z').toISOString().slice(0,10)===s;
 export const localDay=()=>new Date().toLocaleDateString('en-CA',{timeZone:'America/Sao_Paulo'});
 const makeRecordSchema=allowLegacyNucleus=>z.object({
@@ -40,7 +41,7 @@ const makeRecordSchema=allowLegacyNucleus=>z.object({
 export const recordSchema=makeRecordSchema(false);
 // Legacy purchases can lack ingredient/concentration. Never silently infer their values.
 export const storedRecordSchema=makeRecordSchema(true);
-export const backupSchema=z.object({birds:z.array(z.number().int().min(0).max(1000000)).length(5),records:z.array(storedRecordSchema).max(100000),feed:feedStateSchema.optional(),propertyId:propertyIdSchema.optional(),property:propertySchema.optional()}).strict();
+export const backupSchema=z.object({birds:z.array(z.number().int().min(0).max(1000000)).min(1).max(201),sheds:shedsSchema.optional(),shedEvents:shedEventsSchema.optional(),records:z.array(storedRecordSchema).max(100000),feed:feedStateSchema.optional(),propertyId:propertyIdSchema.optional(),property:propertySchema.optional()}).strict().superRefine((state,ctx)=>{if(state.feed?.plans.some(p=>p.active&&(p.shed>=state.birds.length||state.sheds&&!state.sheds[p.shed]?.active)))ctx.addIssue({code:'custom',message:'Plano de alimentação sem galpão ativo.'});if(state.sheds&&(state.sheds.length!==state.birds.length||state.sheds.some((shed,index)=>shed.id!==index||!shed.active&&state.birds[index]!==0)||!state.sheds[0]?.active))ctx.addIssue({code:'custom',message:'Galpões e plantel incompatíveis.'})});
 export const csrfSchema=z.string().regex(/^[A-Za-z0-9_-]{43}$/);
 export const sessionTokenSchema=csrfSchema;
 export const hashSchema=z.string().regex(/^[a-f0-9]{64}$/);

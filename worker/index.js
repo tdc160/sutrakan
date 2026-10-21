@@ -1,3 +1,4 @@
+import {shedCommandSchema} from '../security/shed-schemas.js';
 import {propertyDeleteSchema,propertyProvisionSchema,propertyInputSchema,propertyIdSchema} from '../security/property-schemas.js';
 import {LEGACY_PROPERTY_ID,assistantContext} from '../property-model.js';
 import {registryCall,farmCall,propertyAccess,propertiesFor,identity} from './property-service.js';
@@ -19,7 +20,7 @@ export default {async fetch(request,env){const url=new URL(request.url);
  try{
   // Reject unexpected query parameters; browser-supplied IP forwarding headers are never used.
   validateHeaders(request);if([...url.searchParams].length)throw new HttpError(400);
-  const known=['/api/auth/login','/api/auth/session','/api/auth/logout','/api/records/validate','/api/users','/api/users/update','/api/farm','/api/farm/records','/api/farm/import','/api/farm/feed','/api/auth/register','/api/properties','/api/properties/update','/api/properties/delete','/api/assistant/context'];if(!known.includes(url.pathname))throw new HttpError(404);
+  const known=['/api/auth/login','/api/auth/session','/api/auth/logout','/api/records/validate','/api/users','/api/users/update','/api/farm','/api/farm/records','/api/farm/import','/api/farm/feed','/api/farm/sheds','/api/auth/register','/api/properties','/api/properties/update','/api/properties/delete','/api/assistant/context'];if(!known.includes(url.pathname))throw new HttpError(404);
   const method=request.method;if(!(['/api/users','/api/properties'].includes(url.pathname)?['GET','POST']:['/api/auth/session','/api/farm','/api/assistant/context'].includes(url.pathname)?['GET']:['POST']).includes(method))throw new HttpError(405);
   const ip=await digest(request.headers.get('CF-Connecting-IP')||'unknown');
   await limited(env.API_LIMITER,'api:'+ip);
@@ -55,6 +56,16 @@ export default {async fetch(request,env){const url=new URL(request.url);
   // IDs from headers are selectors, never authority. Every domain route resolves a live membership.
   const requestedId=request.headers.get('X-Property-Id')||LEGACY_PROPERTY_ID;if(!propertyIdSchema.safeParse(requestedId).success)throw new HttpError(400);
   const access=await propertyAccess(env,session,requestedId);session.role=access.role;
+  if(url.pathname==='/api/farm/sheds'){
+   if(access.role!=='admin')throw new HttpError(403);csrfCheck(request,session);const command=await readJSON(request,shedCommandSchema);
+   if(command.action==='delete'){
+    // Reauthenticate the property's responsible administrator; never trust a client role or password flag.
+    await limited(env.LOGIN_LIMITER,'shed-delete-ip:'+ip);await limited(env.LOGIN_ACCOUNT_LIMITER,'shed-delete:'+await digest(access.ownerUsername.toLowerCase()));
+    if(access.ownerUsername===env.ADMIN_USERNAME){if(!env.ADMIN_PASSWORD||!await verifyPassword(command.password,env.ADMIN_PASSWORD))throw new HttpError(403)}
+    else{const verified=await sessionCall(env,'/users/authenticate',{username:access.ownerUsername,password:command.password});if(!verified.ok)throw new HttpError(verified.status===401?403:503)}
+   }
+   const result=await farmCall(env,access,'/sheds',{command,username:session.username});if(!result.ok)throw new HttpError([400,409,413].includes(result.status)?result.status:503);return json(await result.json());
+  }
   if(url.pathname==='/api/properties/update'){if(access.role!=='admin')throw new HttpError(403);csrfCheck(request,session);const profile=await readJSON(request,propertyInputSchema),result=await farmCall(env,access,'/property-update',{profile});if(!result.ok)throw new HttpError([400,409].includes(result.status)?result.status:503);return json({property: (await result.json()).property,properties:await propertiesFor(env,session)})}
   if(url.pathname==='/api/assistant/context'){const result=await farmCall(env,access,'/read');if(!result.ok)throw new HttpError(503);return json(assistantContext(await result.json()))}
 

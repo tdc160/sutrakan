@@ -151,3 +151,9 @@ A plataforma agora separa as propriedades por ID e verifica o vínculo do usuár
 Não havia chat no código. A API `/api/assistant/context` prepara o contexto autorizado para uma futura integração, sem chamar serviço externo de IA. Os módulos atuais continuam voltados à avicultura; o tipo de produção cadastral não converte automaticamente as fórmulas para outras espécies.
 
 Em **Gerenciar propriedades**, Talitom pode usar **Excluir propriedade** e digitar o nome para confirmar. A ação apaga os registros e estoques centrais e revoga os acessos daquela propriedade; baixe um backup antes se precisar. Cópias e rascunhos já guardados nos aparelhos permanecem. A exclusão não está disponível para administradores locais. Senhas de cadastro e redefinição aceitam de 8 a 128 caracteres.
+
+### Cadastro e exclusão de galpões
+
+Em **Plantel e galpões → Gerenciar galpões**, administradores podem criar um galpão vazio, editar seu nome ou excluí-lo. Na exclusão, o sistema exige a senha do administrador responsável (proprietário da conta da propriedade). Se houver aves, é obrigatório escolher outro galpão ativo: a transferência de todo o plantel, seu registro no histórico e a exclusão são gravados juntos. Se não houver outro galpão, crie um antes. A posição **A distribuir** permanece e não pode ser excluída.
+
+O galpão excluído deixa de aparecer nas opções de novos registros e alimentação. O histórico anterior é preservado e seu identificador nunca é reutilizado. A ração da origem é encerrada após fechar os dias anteriores; o destino mantém sua própria configuração, que deve ser conferida. Senhas de confirmação não entram em rascunhos ou backups. O limite é de 200 posições de galpões por propriedade, incluindo posições excluídas para preservar as referências antigas.

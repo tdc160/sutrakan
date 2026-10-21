@@ -1,3 +1,5 @@
+import {activeShed} from '../shed-model.js';
+import {applyShedCommand} from './shed-operations.js';
 import {LEGACY_PROPERTY_ID,legacyProperty,defaultBirds} from '../property-model.js';
 import {propertyIdSchema,propertyInputSchema,propertySchema} from '../security/property-schemas.js';
 import {inventory} from '../feed-inventory.js';
@@ -10,7 +12,7 @@ const initial={birds:[200,70,0,0,0],records:[]};
 export function appendRecord(state,record,username){
  const existing=state.records.find(r=>r.id===record.id);
  if(existing){const {createdBy,createdAt,propertyId,...payload}=existing;if(JSON.stringify(payload)!==JSON.stringify(record))throw new HttpError(409);return state}
- const birds=[...state.birds];const removes=['Mortalidade','Transferência'].includes(record.type)||record.type==='Venda'&&record.category!=='Ovos';
+ const birds=[...state.birds];if((['Mortalidade','Transferência'].includes(record.type)||record.type==='Venda'&&record.category!=='Ovos')&&!activeShed(state,record.from)||['Nascimento','Transferência'].includes(record.type)&&!activeShed(state,record.to))throw new HttpError(409);const removes=['Mortalidade','Transferência'].includes(record.type)||record.type==='Venda'&&record.category!=='Ovos';
  // The server's current flock is authoritative; concurrent clients cannot oversell birds.
  if(removes){if(record.qty>birds[record.from])throw new HttpError(409);birds[record.from]-=record.qty}
  if(['Nascimento','Transferência'].includes(record.type))birds[record.to]+=record.qty;
@@ -27,7 +29,7 @@ export class FarmStore{
  async read(storage=this.ctx.storage){const id=await storage.get('property-id')||LEGACY_PROPERTY_ID,property=await storage.get('profile')||legacyProperty,meta=await storage.get('meta');if(!meta)return {initialized:false,revision:0,propertyId:id,property,...structuredClone(initial)};let raw='';for(let i=0;i<meta.chunks;i++)raw+=await storage.get('chunk:'+i);const data=JSON.parse(raw);if(data.propertyId&&data.propertyId!==id||data.feed?.propertyId&&data.feed.propertyId!==id||data.records.some(r=>r.propertyId&&r.propertyId!==id))throw new HttpError(403);return {initialized:true,revision:meta.revision,...data,...(data.feed?{feed:{...data.feed,propertyId:id}}:{}),propertyId:id,property,records:data.records.map(r=>({...r,propertyId:id}))}}
  async scheduleAlarm(state){if(!this.ctx.storage.getAlarm)return;if(state.feed?.plans.some(p=>p.active)){const now=Date.now(),date=new Date(now);date.setUTCHours(3,10,0,0);if(date.getTime()<=now)date.setUTCDate(date.getUTCDate()+1);const alarm=await this.ctx.storage.getAlarm();if(!alarm||alarm<=now||alarm>date.getTime())await this.ctx.storage.setAlarm(date.getTime())}else if(this.ctx.storage.deleteAlarm)await this.ctx.storage.deleteAlarm()}
  async alarm(){return this.ctx.blockConcurrencyWhile(async()=>{if(await this.ctx.storage.get('deleted')){await this.ctx.storage.deleteAlarm?.();return}const state=await this.read(),next=settleFeed(state,localDay());if(JSON.stringify(next)!==JSON.stringify(state)){const {initialized,revision,...data}=next;await this.write(data,state.revision+1)}await this.scheduleAlarm(next)})}
- async write(data,revision){const bound=await this.ctx.storage.get('property-id');if(bound&&data.propertyId&&bound!==data.propertyId||data.property&&data.propertyId&&data.property.id!==data.propertyId)throw new HttpError(403);if(data.feed){if(data.feed.propertyId&&data.feed.propertyId!==data.propertyId)throw new HttpError(403);feedStateSchema.parse(data.feed);if(data.feed.purchaseStart>data.records.length)throw new HttpError(400);const balances=inventory(data);if([...balances.raw.values(),...balances.rations.values()].some(value=>!Number.isSafeInteger(value)||value<0||value>1000000*1000000))throw new HttpError(409);}const raw=JSON.stringify(data);if(new TextEncoder().encode(raw).length>10*1024*1024||data.records.length>20000)throw new HttpError(413);
+ async write(data,revision){backupSchema.parse(data);const bound=await this.ctx.storage.get('property-id');if(bound&&data.propertyId&&bound!==data.propertyId||data.property&&data.propertyId&&data.property.id!==data.propertyId)throw new HttpError(403);if(data.feed){if(data.feed.propertyId&&data.feed.propertyId!==data.propertyId)throw new HttpError(403);feedStateSchema.parse(data.feed);if(data.feed.purchaseStart>data.records.length)throw new HttpError(400);const balances=inventory(data);if([...balances.raw.values(),...balances.rations.values()].some(value=>!Number.isSafeInteger(value)||value<0||value>1000000*1000000))throw new HttpError(409);}const raw=JSON.stringify(data);if(new TextEncoder().encode(raw).length>10*1024*1024||data.records.length>20000)throw new HttpError(413);
  // Chunked values stay below the DO KV value limit even with multibyte characters.
  // One durable transaction publishes metadata and all chunks together, never a partial snapshot.
  await this.ctx.storage.transaction(async storage=>{const previous=await storage.get('meta');let chunks=0;for(let i=0;i<raw.length;){let end=Math.min(i+28000,raw.length);if(end<raw.length&&/[\uD800-\uDBFF]/.test(raw[end-1]))end--;await storage.put('chunk:'+chunks++,raw.slice(i,end));i=end;}for(let i=chunks;i<(previous?.chunks||0);i++)await storage.delete('chunk:'+i);await storage.put('meta',{chunks,revision});if(data.property)await storage.put('profile',data.property)});await this.scheduleAlarm(data);
@@ -41,10 +43,12 @@ export class FarmStore{
   }
   if(await this.ctx.storage.get('deleted'))throw new HttpError(410);
   await this.bindScope(input);if(path==='/profile')return Response.json(await this.ctx.storage.get('profile'));const state=await this.read();await this.scheduleAlarm(state);
+  if(path==='/sheds'){const next=applyShedCommand(state,input.command,input.username);if(next!==state){const {initialized,revision,...data}=next;await this.write(data,state.revision+1)}return Response.json({...next,revision:next===state?state.revision:state.revision+1})}
   if(path==='/property-update'){const profile=propertyInputSchema.parse(input.profile),next=settleFeed(state,localDay()),{initialized,revision,...data}=next;data.property={...profile,id:state.propertyId};if(!state.initialized){await this.ctx.storage.put('profile',data.property);return Response.json({...data,initialized:false,revision:0})}await this.write(data,state.revision+1);return Response.json({...data,initialized:state.initialized,revision:state.revision+1})}
   if(path==='/read')return Response.json(state);
   if(path==='/feed'||path==='/feed-settle'){
    if(!state.initialized)throw new HttpError(409);
+   if(path==='/feed'&&input.command.action==='plan'&&!activeShed(state,input.command.plan.shed))throw new HttpError(409);
    const next=path==='/feed'?applyFeedAction(state,feedActionSchema.parse(input.command),input.username,localDay()):settleFeed(state,localDay());
    const {initialized,revision,...data}=next,changed=JSON.stringify(next)!==JSON.stringify(state);if(changed)await this.write(data,state.revision+1);
    return Response.json({...data,initialized:true,revision:state.revision+(changed?1:0)});
