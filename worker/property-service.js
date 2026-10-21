@@ -1,0 +1,8 @@
+import {HttpError} from './security.js';
+import {LEGACY_PROPERTY_ID} from '../property-model.js';
+export async function registryCall(env,path,data){if(!env.ADMIN_SESSIONS?.idFromName)throw new HttpError(503);return env.ADMIN_SESSIONS.get(env.ADMIN_SESSIONS.idFromName('admin-sessions')).fetch(new Request('https://internal'+path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)}))}
+export function farmStub(env,id){if(!env.FARM_STORE?.idFromName)throw new HttpError(503);return env.FARM_STORE.get(env.FARM_STORE.idFromName(id===LEGACY_PROPERTY_ID?id:'property:'+id))}
+export async function farmCall(env,access,path,data={}){return farmStub(env,access.property.id).fetch(new Request('https://internal'+path,{method:'POST',body:JSON.stringify({...data,propertyId:access.property.id,initialProperty:access.property,initialBirds:access.initialBirds})}))}
+export function identity(session,env){return {username:session.username,root:!!session.root||session.revision===undefined,rootUsername:env.ADMIN_USERNAME}}
+export async function propertyAccess(env,session,id){const response=await registryCall(env,'/properties/access',{...identity(session,env),propertyId:id});if(!response.ok)throw new HttpError(response.status===403?403:503);return response.json()}
+export async function propertiesFor(env,session){const response=await registryCall(env,'/properties/list',identity(session,env));if(!response.ok)throw new HttpError(503);const accesses=await response.json();return Promise.all(accesses.map(async access=>{const result=await farmCall(env,access,'/profile');if(!result.ok)throw new HttpError(503);return {property:await result.json(),role:access.role,ownerUsername:access.ownerUsername}}))}

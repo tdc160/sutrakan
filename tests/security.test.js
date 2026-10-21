@@ -1,3 +1,4 @@
+import {platformFixture} from './helpers/platform-fixture.js';
 import {farmFixture} from './helpers/farm-fixture.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -5,7 +6,7 @@ import worker from '../worker/index.js';
 import {AdminSessions} from '../worker/sessions.js';
 import {cookieName} from '../worker/security.js';
 import {recordSchema,backupSchema} from '../security/schemas.js';
-function fixture(){const farm=farmFixture();const data=new Map();let alarm=null;const object=new AdminSessions({blockConcurrencyWhile:fn=>fn(),storage:{async get(k){return data.get(k)},async put(k,v){data.set(k,v)},async delete(k){return data.delete(k)},async list(){return new Map(data)},async getAlarm(){return alarm},async setAlarm(t){alarm=t}}});const limiter=limit=>{const counts=new Map();return {async limit({key}){const count=(counts.get(key)||0)+1;counts.set(key,count);return {success:count<=limit}}}};return {data,env:{ADMIN_USERNAME:'Talitom',ADMIN_PASSWORD:crypto.randomUUID(),API_LIMITER:limiter(60),LOGIN_LIMITER:limiter(5),LOGIN_ACCOUNT_LIMITER:limiter(10),FARM_STORE:{idFromName:n=>n,get:()=>({fetch:r=>farm.object.fetch(r)})},ADMIN_SESSIONS:{idFromName:n=>n,get:()=>({fetch:r=>object.fetch(r)})},ASSETS:{fetch:async()=>new Response('<html>app</html>',{headers:{'Content-Type':'text/html'}})}}}}
+const fixture=platformFixture;
 const req=(path,body,{method='POST',headers={},cookie,csrf}={})=>new Request('https://santo.test'+path,{method,headers:{Origin:'https://santo.test','Content-Type':'application/json','CF-Connecting-IP':'192.0.2.5',...(cookie?{Cookie:cookie}:{}),...(csrf?{'X-CSRF-Token':csrf}:{}),...headers},...(method!=='GET'?{body:typeof body==='string'?body:JSON.stringify(body??{})}:{})});
 async function login(env){const response=await worker.fetch(req('/api/auth/login',{username:'Talitom',password:env.ADMIN_PASSWORD}),env);assert.equal(response.status,200);const cookie=response.headers.get('Set-Cookie').split(';')[0];const data=await response.json();return {cookie,csrf:data.csrf,response,data}}
 const record=()=>({type:'Coleta de ovos',category:'Coleta de ovos',qty:12,value:0,date:new Date().toLocaleDateString('en-CA',{timeZone:'America/Sao_Paulo'}),note:''});
@@ -22,8 +23,8 @@ test('authentication is required and cannot be bypassed through client-side flag
  assert.equal((await worker.fetch(req('/api/auth/login',{username:'another-user',password:env.ADMIN_PASSWORD}),env)).status,401);
 });
 test('sessions expire on the server, regardless of browser state',async()=>{
- const {env,data}=fixture();const session=await login(env);for(const value of data.values())value.expiresAt=Date.now()-1;
- assert.equal((await worker.fetch(req('/api/auth/session',null,{method:'GET',cookie:session.cookie}),env)).status,401);assert.equal(data.size,0);
+ const {env,data}=fixture();const session=await login(env);for(const [key,value] of data)if(key.startsWith('session:'))value.expiresAt=Date.now()-1;
+ assert.equal((await worker.fetch(req('/api/auth/session',null,{method:'GET',cookie:session.cookie}),env)).status,401);assert.equal([...data.keys()].filter(k=>k.startsWith('session:')).length,0);
 });
 test('origin and CSRF checks reject state-changing requests before accepting data',async()=>{
  const {env}=fixture();assert.equal((await worker.fetch(req('/api/auth/login',{username:'Talitom',password:env.ADMIN_PASSWORD},{headers:{Origin:'https://attacker.test'}}),env)).status,403);

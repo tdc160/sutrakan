@@ -18,6 +18,6 @@ test('concurrent movements are serialized; retries are idempotent and payload ch
 });
 test('chunked atomic persistence preserves unicode and rolls back storage failures',async()=>{
  const {object,setFail}=farmFixture();const records=Array.from({length:250},()=>record('Coleta de ovos',{note:'🐔'.repeat(200)}));const data={birds:[1,2,3,4,5],records};
- assert.equal((await call(object,'/import',{data,revision:0})).status,200);assert.deepEqual((await (await call(object,'/read')).json()).records,records);
+ assert.equal((await call(object,'/import',{data,revision:0})).status,200);assert.deepEqual((await (await call(object,'/read')).json()).records.map(({propertyId,...r})=>r),records);
  setFail(true);await assert.rejects(call(object,'/record',{record:record(),username:'a'}),/synthetic-storage-failure/);setFail(false);const restored=await (await call(object,'/read')).json();assert.equal(restored.revision,1);assert.equal(restored.records.length,250);
 });

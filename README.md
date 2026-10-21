@@ -53,7 +53,7 @@ Dias sem lançamentos mostram zero registrado, não produção ou movimento comp
 
 ## Armazenamento e limites
 
-Os registros ficam no armazenamento persistente do Cloudflare Durable Object FarmStore. Todos os usuários autenticados consultam o mesmo plantel, despesas, receitas e produção. A abertura e o salvamento exigem conexão. As telas atualizam a cada 30 segundos quando visíveis e sem formulário/menu aberto; Atualizar dados busca imediatamente. Faça backups regularmente no Histórico. Limpar o navegador remove rascunhos e cópias antigas locais, mas não os registros já confirmados no servidor.
+Os registros ficam no armazenamento persistente do Cloudflare Durable Object FarmStore. Os usuários autorizados de uma propriedade consultam seu mesmo plantel, despesas, receitas e produção; outras propriedades ficam isoladas. A abertura e o salvamento exigem conexão. As telas atualizam a cada 30 segundos quando visíveis e sem formulário/menu aberto; Atualizar dados busca imediatamente. Faça backups regularmente no Histórico. Limpar o navegador remove rascunhos e cópias antigas locais, mas não os registros já confirmados no servidor.
 
 Não há estoque físico de ovos, medicamentos ou carcaças. Ingredientes e rações produzidas têm estoque próprio após a abertura em Produção de ração; compra não equivale a consumo. Uma venda de aves abatidas reduz diretamente o plantel vivo: registre-a apenas uma vez por ave, pois não existe movimentação separada de abate. Não há edição/exclusão de lançamentos ou cadastro de lotes com idade nesta versão. O saldo inicial é aproximado e deve ser conferido antes do uso operacional.
 
@@ -108,7 +108,7 @@ O endereço definitivo aparece no painel Cloudflare após o deploy. A configura�
 
 ### Usuários
 
-Entre como Talitom e abra **Usuários** (no celular, **Menu → Usuários**). Em **Cadastrar usuário**, preencha nome, usuário, perfil e senha com pelo menos 15 caracteres. Administradores também podem desativar/reativar contas, alterar perfil e redefinir senhas. Cada atualização encerra as sessões anteriores dessa pessoa nos próximos acessos online. A conta Talitom é protegida e mantém a senha configurada no Cloudflare. Contas e registros da criação persistem no servidor e são compartilhados entre aparelhos.
+Entre como Talitom e abra **Usuários** (no celular, **Menu → Usuários**). Em **Cadastrar usuário**, preencha nome, usuário, perfil e senha com pelo menos 15 caracteres. Administradores também podem desativar/reativar contas, alterar perfil e redefinir senhas. Cada atualização encerra as sessões anteriores dessa pessoa nos próximos acessos online. A conta Talitom é protegida e mantém a senha configurada no Cloudflare. Contas persistem no servidor; os registros são compartilhados entre os aparelhos autorizados da mesma propriedade.
 
 ### Primeira importação central
 
@@ -137,3 +137,15 @@ O botão **Conferir baixas até ontem** permite conciliar manualmente se um agen
 Núcleos da mesma fase com concentrações diferentes têm saldos separados. Milho em grão inteiro não substitui a quirera da fórmula; seu fornecimento avulso pode ser registrado como ajuste negativo de ingrediente. Ração pronta comprada sem fase fica sem associação às quatro rações produzidas. Ajustes de ingrediente ou ração exigem administrador e motivo, não podem deixar saldo negativo e não geram receita/despesa. Perdas e diferenças do peso efetivo da mistura podem ser ajustadas com motivo.
 
 Os históricos de produção, ajustes e baixas ficam na página; o backup da base inclui o conteúdo completo. Massas são contabilizadas em miligramas inteiros e exibidas em kg com até três casas, conservando o total da mistura. Não houve alteração das proporções da formulação fornecida nem validação nutricional adicional. Rascunhos de produção são guardados no aparelho, mas a confirmação depende da gravação online.
+
+## Propriedades personalizáveis
+
+A plataforma agora separa as propriedades por ID e verifica o vínculo do usuário em cada API. Consulte [ARCHITECTURE.md](ARCHITECTURE.md) para o modelo, a migração e os limites.
+
+- No login, **Cadastrar minha propriedade** cria uma conta e uma propriedade independente, com seu próprio plantel inicial (padrão zero).
+- Após entrar, o seletor **Propriedade ativa** alterna apenas entre as propriedades autorizadas.
+- Em **Gerenciar propriedades**, personalize nome, proprietário, região, hectares, produção principal e gramas por ave/dia; ou cadastre outra propriedade da sua conta.
+- Registros, usuários autorizados, estoque, baixas, backups e rascunhos ficam no contexto selecionado. Alterar o nome não muda o ID ou o histórico.
+- A Santo Expedito mantém seus dados e contas no objeto original. Não é necessário reimportar uma base já centralizada ou cadastrar novamente os usuários existentes.
+
+Não havia chat no código. A API `/api/assistant/context` prepara o contexto autorizado para uma futura integração, sem chamar serviço externo de IA. Os módulos atuais continuam voltados à avicultura; o tipo de produção cadastral não converte automaticamente as fórmulas para outras espécies.

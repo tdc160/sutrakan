@@ -43,3 +43,9 @@ Menu → Produção de ração apresenta quatro saldos, prévia dos ingredientes
 Os formulários de abertura, produção, alimentação e ajuste têm rascunhos individuais, UUID estável e opção explícita de descarte. A página evita polling que substitua os campos durante a edição; Atualizar dados busca o estado novo preservando o preenchimento. Salvar bloqueia os controles até a confirmação e mantém os dados em falhas de rede, quota ou sessão. A cópia de memória permite retomar após navegar ou entrar novamente na mesma página; não substitui o armazenamento após fechar o navegador. Sem conexão não há envio automático nem promessa de saldo já alterado.
 
 Verificações em Chromium móvel/runtime local cobrem abertura dos saldos, produção com 3%, plano dos 70 pintinhos, compras posteriores, exportação com estoque, rascunho offline, resposta perdida seguida de reload sem duplicar, quota com recuperação após logout/login e larguras 360/390/768/1280. O cron é executado no servidor e não depende do aparelho continuar aberto.
+
+## Propriedade ativa
+
+O seletor antes do conteúdo troca o contexto autorizado. A visualização é limpa antes da consulta seguinte; uma resposta atrasada não pode restaurar a fazenda anterior. Formulários e cópias de memória de registros/ração usam chaves por usuário e propriedade. A preferência de última propriedade no navegador só escolhe entre os vínculos retornados pelo servidor, sem funcionar como permissão.
+
+Cadastro público e personalização usam formulários compartilhados, controles de 56 px e teclado numérico para hectares/consumo/plantel inicial. Rascunhos legados só aparecem no contexto autorizado da Santo Expedito. A marca do aplicativo instalado é Gestão Rural; nome e contexto após login são da propriedade selecionada. A identidade de instalação, origem e cache de arquivos não mudam.

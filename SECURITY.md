@@ -15,7 +15,7 @@ Login não é criptografia de dados locais: quem tem acesso ao perfil do navegad
 3. Salve/implante a alteração. O nome **ADMIN_USERNAME = Talitom** já está em `wrangler.jsonc` e não é segredo.
 4. Confira o deploy da branch `main` e entre no endereço HTTPS publicado pelo Worker.
 
-A senha nunca foi incluída no repositório. Não existe senha padrão embutida ou rota de cadastro público. Sem segredo válido, armazenamento de sessões ou rate limit, a API recusa a operação. Até configurar o segredo, o sistema fica na tela de acesso; isso é intencional, sem fallback público que burle o login.
+A senha nunca foi incluída no repositório. Não existe senha padrão embutida. A rota pública /api/auth/register cadastra uma conta e sua propriedade isolada, com validação e limites de tentativas; ela não concede acesso às propriedades existentes. Sem segredo válido, armazenamento de sessões ou rate limit, a API recusa a operação. Até configurar o segredo, o sistema fica na tela de acesso; isso é intencional, sem fallback público que burle o login.
 
 O segredo é mantido no armazenamento de segredos criptografados do Cloudflare e acessado somente no runtime. A senha recebida é comparada por verificação HMAC do WebCrypto com chave efêmera, evitando comparação de strings com saída antecipada. O segredo é exclusivo da conta principal. Contas adicionais usam scrypt com salt individual, descrito abaixo.
 
@@ -71,7 +71,7 @@ Testes automatizados cobrem limites, coerção, autenticação, expiração, rev
 
 ## Cadastro de usuários
 
-Em **Usuários → Cadastrar usuário**, administradores informam nome, identificador, perfil e senha de 15–128 caracteres. Operadores têm as funções existentes de consulta e registro, sem API de administração de contas; essa permissão é verificada no Worker. Dados da criação são centralizados e compartilhados entre todos os usuários autenticados. A permissão de operador permite consulta e criação de lançamentos, incluindo financeiros; somente administradores inicializam a base. Não há restrição por galpão ou por autor.
+Em **Usuários → Cadastrar usuário**, administradores informam nome, identificador, perfil e senha de 15–128 caracteres. Operadores têm as funções existentes de consulta e registro, sem API de administração de contas; essa permissão é verificada no Worker. Dados da criação são centralizados e compartilhados somente entre os usuários autorizados da propriedade selecionada. A permissão de operador permite consulta e criação de lançamentos, incluindo financeiros; somente administradores inicializam a base. Não há restrição por galpão ou por autor.
 
 Contas adicionais persistem no Durable Object existente, em chaves `user:` separadas de `session:`. Limite de 50 contas adicionais, identificadores únicos sem distinção de maiúsculas. O administrador principal não pode ser recriado, desativado ou rebaixado, e continua recuperável pelo segredo ADMIN_PASSWORD. Administradores adicionais não alteram o próprio acesso; outro administrador pode redefinir sua senha. Não há recuperação pública por email.
 
@@ -83,7 +83,7 @@ Sessões anteriores do administrador principal continuam compatíveis. Não há 
 
 ## Base central da chácara
 
-`FARM_STORE` aponta para FarmStore, com uma única identidade `santo-expedito`; os dados não ficam no Durable Object de sessões. A migração `v2-central-farm` acrescenta a classe sem apagar usuários/sessões. `GET /api/farm` exige sessão; `POST /api/farm/records` exige sessão, origem, CSRF e schema; `POST /api/farm/import` exige ainda administrador e base não inicializada. APIs não são cacheadas pelo service worker e usam no-store/private.
+`FARM_STORE` aponta para FarmStore, com a identidade legada `santo-expedito` preservada e uma identidade `property:<uuid>` para cada nova propriedade; os dados não ficam no Durable Object de sessões. A migração `v2-central-farm` acrescenta a classe sem apagar usuários/sessões. `GET /api/farm` exige sessão; `POST /api/farm/records` exige sessão, origem, CSRF e schema; `POST /api/farm/import` exige ainda administrador e base não inicializada. APIs não são cacheadas pelo service worker e usam no-store/private.
 
 Escritas são serializadas e confirmadas em transações duráveis. O servidor aplica movimentações sobre o plantel corrente, recusa saldo insuficiente e atribui createdBy/createdAt, rejeitando autoria enviada por clientes. O ID do registro é persistido no rascunho antes do envio: repetir ID/conteúdo retorna a confirmação existente, e ID com conteúdo diferente gera conflito. Dados importados podem ter metadados históricos sem garantia de autoria verificada.
 
@@ -106,3 +106,13 @@ O handler `scheduled` acessa somente a interface privada do FarmStore e processa
 A conciliação de recuperação percorre até 31 dias por plano/passagem. Cada snapshot limita produções e ajustes a 10 mil cada, baixas diárias a 20 mil e recibos a 10 mil, além do limite total de 10 MiB. Históricos da tela são limitados às últimas 50 produções/ajustes e 100 baixas; o backup inclui todos os itens. Não há expurgo automático. Monitorar crescimento e cotas do provedor antes de atingir limites.
 
 Os formulários usam rascunhos separados (`santo-expedito-feed-drafts-v1`), sem credenciais, com cópia de memória e proteção de saída se persistência falhar. A sessão pode bloquear a tela preservando o preenchimento. Sem conexão não se confirma produção ou alteração de saldo. Testes cobrem fórmulas/concentrações, compras após o corte, massa conservada, concorrência, rollback, pendências FIFO, rotina agendada idempotente e autorização de operadores.
+
+## Autorização multi-propriedade
+
+Ver ARCHITECTURE.md. O cabeçalho X-Property-Id não é uma credencial: todas as rotas de domínio resolvem a sessão, o vínculo ativo e a permissão antes de escolher o objeto. Na ausência do cabeçalho, a compatibilidade legada continua exigindo vínculo na Santo Expedito. IDs desconhecidos ou sem vínculo retornam a mesma negação. O objeto confirma seu ID internamente; comandos, backups e metadados de outra propriedade não mudam essa associação.
+
+A identidade global é separada dos vínculos. Uma alteração de perfil/estado afeta apenas o vínculo escolhido. Senhas globais de contas com vários vínculos não podem ser redefinidas por administradores de apenas uma propriedade. A conta proprietária não pode ser removida/rebaixada pelo CRUD de usuários. Contas legadas são vinculadas de forma idempotente antes de serem listadas; cadastros novos não recebem o vínculo legado. Cadastro de identidade, propriedade e vínculo inicial ocorre em transação no diretório.
+
+APIs de domínio usam no-store/private e Vary: Cookie, X-Property-Id. Não há cache offline dessas respostas. O navegador elimina estado visual anterior ao trocar, rejeita respostas de outro contexto e separa rascunhos por usuário/propriedade, mas armazenamento local não fornece criptografia em repouso.
+
+Propriedades novas têm alarmes independentes para suas baixas, sem fan-out ilimitado no Worker. Taxas de consumo são validadas e alteradas dentro do objeto, após conciliar dias anteriores. O novo cadastro público não inclui verificação por email, recuperação pública de senha ou faturamento; esses recursos não são declarados como implementados. Testes cobrem cadastro isolado, tentativas com ID alheio, vínculos legados, identidade compartilhada, backups, taxas, alarmes e contexto do assistente.

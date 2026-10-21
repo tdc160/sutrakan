@@ -1,3 +1,4 @@
+import {propertyIdSchema} from './property-schemas.js';
 import {z} from 'zod';
 import {ingredients,isNucleus} from '../feed-items.js';
 z.config({jitless:true});
@@ -23,7 +24,7 @@ const audit={createdBy:z.string().min(1).max(64),createdAt:z.number().int().posi
 const production=z.object({id:uuid,recipe:phaseSchema,cornKg:kg.positive(),concentration,totalKg:kg.positive(),items:z.array(stockEntrySchema).min(3).max(5),...audit}).strict();
 const adjustment=z.object({id:uuid,target:z.enum(['ingredient','ration']),ingredient:z.enum(ingredients).optional(),concentration:concentration.optional(),recipe:phaseSchema.optional(),deltaKg:z.number().finite(),reason:text(300),...audit}).strict();
 const daily=z.object({id:z.string().max(100),day:date,planId:uuid,name:text(80),shed:z.number().int().min(0).max(4),recipe:phaseSchema,birds:quantity,grams:z.number().int().positive(),kg,status:z.enum(['posted','pending']),reason:z.string().max(300).optional(),postedAt:z.number().int().positive().optional()}).strict();
-export const feedStateSchema=z.object({version:z.literal(1),purchaseStart:z.number().int().nonnegative(),openedAt:z.number().int().positive(),openedBy:z.string().min(1).max(64),openingIngredients:z.array(stockEntrySchema).max(30),openingRations:z.array(rationEntrySchema).max(4),plans:z.array(planStored).max(100),productions:z.array(production).max(10000),adjustments:z.array(adjustment).max(10000),daily:z.array(daily).max(20000),receipts:z.array(z.object({id:uuid,command:z.string().max(16000),...audit}).strict()).max(10000)}).strict().superRefine((feed,ctx)=>{
+export const feedStateSchema=z.object({propertyId:propertyIdSchema.optional(),version:z.literal(1),purchaseStart:z.number().int().nonnegative(),openedAt:z.number().int().positive(),openedBy:z.string().min(1).max(64),openingIngredients:z.array(stockEntrySchema).max(30),openingRations:z.array(rationEntrySchema).max(4),plans:z.array(planStored).max(100),productions:z.array(production).max(10000),adjustments:z.array(adjustment).max(10000),daily:z.array(daily).max(20000),receipts:z.array(z.object({id:uuid,command:z.string().max(16000),...audit}).strict()).max(10000)}).strict().superRefine((feed,ctx)=>{
  const unique=items=>new Set(items).size===items.length;
  if(!unique(feed.plans.map(p=>p.id))||!unique(feed.plans.filter(p=>p.active).map(p=>p.shed))||!unique(feed.productions.map(p=>p.id))||!unique(feed.adjustments.map(p=>p.id))||!unique(feed.daily.map(p=>p.id))||!unique(feed.receipts.map(p=>p.id))||!unique(feed.openingIngredients.map(p=>p.ingredient+'::'+(p.concentration||'')))||!unique(feed.openingRations.map(p=>p.recipe)))ctx.addIssue({code:'custom',message:'Identificadores ou saldos duplicados.'});
 });

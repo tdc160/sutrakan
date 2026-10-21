@@ -1,9 +1,11 @@
+import {scopedStorage,contextKey} from './property-context.js';
 import {isNucleus,nucleusConcentrations} from './feed-items.js';
 import {DRAFT_KEY,loadDraft,writeDraft} from './record-draft.js';
 const types=['Coleta de ovos','Venda','Despesa','Nascimento','Mortalidade','Transferência'];
-let captureActive=null,memoryDraft=null;
+let captureActive=null,memoryDraft=null;const scopedMemory=new Map();
+addEventListener('property-context-change',event=>{if(event.detail.previous)scopedMemory.set(event.detail.previous,memoryDraft);captureActive=null;memoryDraft=scopedMemory.get(event.detail.current)||null});
 export function preserveOpenRecordDraft(){return captureActive?.()!==false}
-export function clearRecordDraft(){captureActive=null;memoryDraft=null;try{localStorage.removeItem(DRAFT_KEY)}catch{}}
+export function clearRecordDraft(){captureActive=null;memoryDraft=null;try{scopedStorage(localStorage).removeItem(DRAFT_KEY)}catch{}}
 addEventListener('pagehide',()=>captureActive?.());
 addEventListener('beforeunload',e=>{if(captureActive?.()===false){e.preventDefault();e.returnValue=''}});
 export function showRecordForm({ingredients,names,birds,today,preset,submit}){

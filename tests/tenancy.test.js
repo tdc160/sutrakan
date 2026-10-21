@@ -1,0 +1,46 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import worker from '../worker/index.js';
+import {platformFixture} from './helpers/platform-fixture.js';
+import {LEGACY_PROPERTY_ID,DEFAULT_FEEDING_RATES,legacyProperty} from '../property-model.js';
+import {dailyForecast,addDays} from '../feed-inventory.js';
+import {settleFeed} from '../worker/feed-operations.js';
+import {FarmStore} from '../worker/farm.js';
+const req=(path,body,auth={},id)=>new Request('https://farm.test'+path,{method:body===undefined?'GET':'POST',headers:{Origin:'https://farm.test','Content-Type':'application/json','CF-Connecting-IP':'192.0.2.40',...(auth.cookie?{Cookie:auth.cookie}:{}),...(auth.csrf?{'X-CSRF-Token':auth.csrf}:{}),...(id?{'X-Property-Id':id}:{})},...(body===undefined?{}:{body:JSON.stringify(body)})});
+const call=(env,path,body,auth,id)=>worker.fetch(req(path,body,auth,id),env);
+async function login(env,username='Talitom',password=env.ADMIN_PASSWORD){const response=await call(env,'/api/auth/login',{username,password});assert.equal(response.status,200);const data=await response.json();return {cookie:response.headers.get('Set-Cookie').split(';')[0],csrf:data.csrf,data}}
+const profile=name=>({name,owner:'Responsável '+name,region:'Interior / SP',hectares:2.5,productionType:'Ovos caipiras',feedingRates:{...DEFAULT_FEEDING_RATES}});
+const creation=(name,birds=[0,0,0,0,0])=>({id:crypto.randomUUID(),profile:profile(name),initialBirds:birds});
+const record=()=>({id:crypto.randomUUID(),type:'Coleta de ovos',category:'Coleta de ovos',qty:12,value:0,date:new Date().toLocaleDateString('en-CA',{timeZone:'America/Sao_Paulo'}),note:'Apenas desta propriedade'});
+async function register(env,username,name){const password=crypto.randomUUID(),property=creation(name,[10,5,0,0,0]);assert.equal((await call(env,'/api/auth/register',{username,name,password,property})).status,201);return {auth:await login(env,username,password),property,password}}
+test('new owners are isolated: guessed property IDs, missing context and foreign backups cannot access legacy or other farms',async()=>{
+ const {env}=platformFixture(),a=await register(env,'OwnerA','Fazenda A'),b=await register(env,'OwnerB','Fazenda B');assert.equal(a.auth.data.properties.length,1);assert.equal(a.auth.data.properties[0].property.id,a.property.id);
+ assert.equal((await call(env,'/api/farm',undefined,a.auth)).status,403);assert.equal((await call(env,'/api/farm',undefined,a.auth,b.property.id)).status,403);assert.equal((await call(env,'/api/farm/records',record(),a.auth,b.property.id)).status,403);assert.equal((await call(env,'/api/users',undefined,a.auth,b.property.id)).status,403);assert.equal((await call(env,'/api/assistant/context',undefined,a.auth,b.property.id)).status,403);
+ assert.equal((await call(env,'/api/farm/records',record(),a.auth,a.property.id)).status,200);const stateA=await (await call(env,'/api/farm',undefined,a.auth,a.property.id)).json(),stateB=await (await call(env,'/api/farm',undefined,b.auth,b.property.id)).json();assert.equal(stateA.records.length,1);assert.equal(stateA.records[0].propertyId,a.property.id);assert.equal(stateB.records.length,0);assert.deepEqual(stateB.birds,[10,5,0,0,0]);
+ assert.equal((await call(env,'/api/farm/import',{revision:0,data:{birds:stateA.birds,records:stateA.records,propertyId:a.property.id,property:stateA.property}},b.auth,b.property.id)).status,409);
+ assert.equal((await call(env,'/api/properties/update',{...profile('Ataque'),id:b.property.id},a.auth,a.property.id)).status,400);
+});
+test('legacy object and users migrate in place without losing records or allowing new registrants into Santo Expedito',async()=>{
+ const {env,data,farms}=platformFixture(),r=record();const farm=env.FARM_STORE.get(env.FARM_STORE.idFromName(LEGACY_PROPERTY_ID));await farm.fetch(new Request('https://internal/import',{method:'POST',body:JSON.stringify({data:{birds:[123,45,0,0,0],records:[r]},revision:0})}));
+ data.set('user:legacy',{username:'Legacy',name:'Equipe antiga',role:'operator',active:true,revision:1,credentials:{}});const root=await login(env);const state=await (await call(env,'/api/farm',undefined,root)).json();assert.deepEqual(state.birds,[123,45,0,0,0]);assert.equal(state.records[0].id,r.id);assert.equal(state.records[0].propertyId,LEGACY_PROPERTY_ID);assert.equal(data.get('member:legacy:'+LEGACY_PROPERTY_ID).role,'operator');assert.equal(farms.has('property:'+LEGACY_PROPERTY_ID),false);
+ const newcomer=await register(env,'NewOwner','Sítio Novo');assert.equal(newcomer.auth.data.properties.some(p=>p.property.id===LEGACY_PROPERTY_ID),false);assert.equal((await call(env,'/api/farm',undefined,newcomer.auth,LEGACY_PROPERTY_ID)).status,403);
+});
+test('one account can own multiple properties; metadata, balances, users and assistant context remain scoped',async()=>{
+ const {env}=platformFixture(),owner=await register(env,'Multi','Primeira'),second=creation('Segunda',[7,2,0,0,0]);assert.equal((await call(env,'/api/properties',second,owner.auth)).status,201);assert.equal((await call(env,'/api/properties',second,owner.auth)).status,201);
+ const modified={...profile('Segunda personalizada'),feedingRates:{inicio:45,crescimento:80,postura:115,engorda:130}};assert.equal((await call(env,'/api/properties/update',modified,owner.auth,second.id)).status,200);
+ const context=await (await call(env,'/api/assistant/context',undefined,owner.auth,second.id)).json();assert.equal(context.propertyId,second.id);assert.equal(context.property.name,modified.name);assert.equal(context.feedingRates.postura,115);assert.equal(context.flock.total,9);
+ const first=await (await call(env,'/api/farm',undefined,owner.auth,owner.property.id)).json();assert.equal(first.property.name,'Primeira');assert.equal(first.property.feedingRates.postura,110);
+ const user={username:'OnlySecond',name:'Equipe segunda',role:'operator',password:crypto.randomUUID()};assert.equal((await call(env,'/api/users',user,owner.auth,second.id)).status,201);const firstUsers=await (await call(env,'/api/users',undefined,owner.auth,owner.property.id)).json();assert.equal(firstUsers.users.some(u=>u.username===user.username),false);const operator=await login(env,user.username,user.password);assert.equal((await call(env,'/api/farm',undefined,operator,owner.property.id)).status,403);assert.equal((await call(env,'/api/properties/update',modified,operator,second.id)).status,403);
+});
+test('each property owns an independent daily-consumption alarm and configured rates preserve prior history',async()=>{
+ const {env,farms}=platformFixture(),owner=await register(env,'FeedOwner','Ração A'),other=creation('Ração B',[10,5,0,0,0]);await call(env,'/api/properties',other,owner.auth);
+ const initialize={id:crypto.randomUUID(),action:'initialize',revision:1,ingredients:[],rations:[{recipe:'inicio',kg:20}]};assert.equal((await call(env,'/api/farm/feed',initialize,owner.auth,owner.property.id)).status,200);const plan={id:crypto.randomUUID(),action:'plan',plan:{id:crypto.randomUUID(),name:'Pintinhos',shed:1,recipe:'inicio',mode:'shed'}};assert.equal((await call(env,'/api/farm/feed',plan,owner.auth,owner.property.id)).status,200);
+ const fixture=farms.get('property:'+owner.property.id);assert.ok(await fixture.ctx.storage.getAlarm());let a=await fixture.object.read();const today=new Date().toLocaleDateString('en-CA',{timeZone:'America/Sao_Paulo'});a.feed.plans[0].startDay=addDays(today,-1);a.feed.plans[0].lastClosedDay=addDays(today,-2);const {initialized,revision,...data}=a;await fixture.object.write(data,revision);
+ const updated={...owner.property.profile,feedingRates:{...DEFAULT_FEEDING_RATES,inicio:50}};assert.equal((await call(env,'/api/properties/update',updated,owner.auth,owner.property.id)).status,200);a=await fixture.object.read();assert.equal(a.feed.daily[0].grams,40);assert.equal(dailyForecast(a)[0].grams,50);const after=settleFeed(a,addDays(today,1));assert.equal(after.feed.daily.find(e=>e.day===today).grams,50);
+ const b=await (await call(env,'/api/farm',undefined,owner.auth,other.id)).json();assert.equal(b.feed,undefined);assert.equal(await farms.get('property:'+other.id).ctx.storage.getAlarm(),null);
+ const restored=new FarmStore(fixture.ctx);await restored.alarm();assert.equal((await restored.read()).propertyId,owner.property.id);
+});
+test('an administrator cannot reset a shared identity or deactivate its membership in another property',async()=>{
+ const {env}=platformFixture(),root=await login(env),password=crypto.randomUUID();assert.equal((await call(env,'/api/users',{username:'Shared',name:'Usuário compartilhado',role:'operator',password},root,LEGACY_PROPERTY_ID)).status,201);const user=await login(env,'Shared',password),own=creation('Propriedade do usuário');assert.equal((await call(env,'/api/properties',own,user)).status,201);
+ assert.equal((await call(env,'/api/users/update',{username:'Shared',password:crypto.randomUUID()},root,LEGACY_PROPERTY_ID)).status,409);assert.equal((await call(env,'/api/users/update',{username:'Shared',active:false},root,LEGACY_PROPERTY_ID)).status,200);assert.equal((await call(env,'/api/farm',undefined,user,LEGACY_PROPERTY_ID)).status,403);assert.equal((await call(env,'/api/farm',undefined,user,own.id)).status,200);assert.equal((await call(env,'/api/farm',undefined,root,own.id)).status,403);
+});

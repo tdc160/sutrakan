@@ -1,3 +1,4 @@
+import {dailyGrams} from '../property-model.js';
 import {recipes} from '../feed-model.js';
 import {inventory,batchIngredients,mg,kg,addDays,validatePlans} from '../feed-inventory.js';
 import {ingredientPriceKey} from '../feed-items.js';
@@ -8,7 +9,7 @@ export function settleFeed(state,today,now=Date.now()){
   let day=addDays(plan.lastClosedDay,1),count=0;
   // Bounded catch-up per invocation. The next run continues from lastClosedDay, never drops dates.
   while(day<=yesterday&&count++<31){if(day>=plan.startDay){const birds=state.birds[plan.shed],recipe=recipes.find(r=>r.id===plan.recipe);
-    feed.daily.push({id:day+':'+plan.id,day,planId:plan.id,name:plan.name,shed:plan.shed,recipe:plan.recipe,birds,grams:recipe.daily,kg:birds*recipe.daily/1000,status:'pending'});
+    feed.daily.push({id:day+':'+plan.id,day,planId:plan.id,name:plan.name,shed:plan.shed,recipe:plan.recipe,birds,grams:dailyGrams(state.property,plan.recipe),kg:birds*dailyGrams(state.property,plan.recipe)/1000,status:'pending'});
    }plan.lastClosedDay=day;day=addDays(day,1)}
  }
  const balances=inventory(next).rations,blocked=new Set();
@@ -25,7 +26,7 @@ export function applyFeedAction(state,command,username,today,now=Date.now()){
  if(command.action==='initialize'){
   if(feed||command.revision!==state.revision)throw new HttpError(409);
   const rawKeys=command.ingredients.map(i=>ingredientPriceKey(i.ingredient,i.concentration));if(new Set(rawKeys).size!==rawKeys.length||new Set(command.rations.map(i=>i.recipe)).size!==command.rations.length)throw new HttpError(400);
-  next=structuredClone(state);feed=next.feed={version:1,purchaseStart:state.records.length,openedAt:now,openedBy:username,openingIngredients:command.ingredients,openingRations:command.rations,plans:[],productions:[],adjustments:[],daily:[],receipts:[]};
+  next=structuredClone(state);feed=next.feed={...(state.propertyId?{propertyId:state.propertyId}:{}),version:1,purchaseStart:state.records.length,openedAt:now,openedBy:username,openingIngredients:command.ingredients,openingRations:command.rations,plans:[],productions:[],adjustments:[],daily:[],receipts:[]};
  }else{
   if(!feed)throw new HttpError(409);
   if(command.action==='produce'){

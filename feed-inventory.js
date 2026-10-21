@@ -1,3 +1,4 @@
+import {dailyGrams} from './property-model.js';
 import {recipes,calculateMix} from './feed-model.js';
 import {ingredientPriceKey,isNucleus} from './feed-items.js';
 // Integer milligrams prevent cumulative floating point drift across batches and daily debits.
@@ -16,4 +17,4 @@ export function inventory(state){const feed=state.feed,raw=new Map(),rations=new
 }
 export function batchIngredients(recipeId,cornKg,concentration){const recipe=recipes.find(r=>r.id===recipeId);if(!recipe)throw Error('invalid-recipe');const mix=calculateMix(recipe,cornKg,concentration);const items=mix.items.map(i=>({ingredient:i.ingredient,...(isNucleus(i.ingredient)?{concentration}:{}),kg:kg(mg(i.kg))}));return {items,totalKg:kg(items.reduce((sum,i)=>sum+mg(i.kg),0))}}
 export function validatePlans(plans,birds){const active=plans.filter(p=>p.active);return new Set(active.map(p=>p.shed)).size===active.length&&active.every(p=>Number.isInteger(birds[p.shed])&&birds[p.shed]>=0)}
-export function dailyForecast(state){return (state.feed?.plans||[]).filter(p=>p.active).map(p=>{const recipe=recipes.find(r=>r.id===p.recipe),birds=state.birds[p.shed];return {...p,birds,grams:recipe.daily,kg:birds*recipe.daily/1000,valid:validatePlans(state.feed.plans,state.birds)}})}
+export function dailyForecast(state){return (state.feed?.plans||[]).filter(p=>p.active).map(p=>{const recipe=recipes.find(r=>r.id===p.recipe),birds=state.birds[p.shed];return {...p,birds,grams:dailyGrams(state.property,p.recipe),kg:birds*dailyGrams(state.property,p.recipe)/1000,valid:validatePlans(state.feed.plans,state.birds)}})}
