@@ -142,9 +142,9 @@ Os históricos de produção, ajustes e baixas ficam na página; o backup da bas
 
 A plataforma agora separa as propriedades por ID e verifica o vínculo do usuário em cada API. Consulte [ARCHITECTURE.md](ARCHITECTURE.md) para o modelo, a migração e os limites.
 
-- No login, **Cadastrar minha propriedade** cria uma conta e uma propriedade independente, com seu próprio plantel inicial (padrão zero).
+- Somente o administrador geral (ADMIN_USERNAME) cadastra propriedades em **Gerenciar propriedades → Cadastrar nova propriedade**, informando um administrador local exclusivo. Não há cadastro público no login.
 - Após entrar, o seletor **Propriedade ativa** alterna apenas entre as propriedades autorizadas.
-- Em **Gerenciar propriedades**, personalize nome, proprietário, região, hectares, produção principal e gramas por ave/dia; ou cadastre outra propriedade da sua conta.
+- Em **Gerenciar propriedades**, personalize nome, proprietário, região, hectares, produção principal e gramas por ave/dia; o cadastro de novas propriedades é exclusivo do administrador geral.
 - Registros, usuários autorizados, estoque, baixas, backups e rascunhos ficam no contexto selecionado. Alterar o nome não muda o ID ou o histórico.
 - A Santo Expedito mantém seus dados e contas no objeto original. Não é necessário reimportar uma base já centralizada ou cadastrar novamente os usuários existentes.
 

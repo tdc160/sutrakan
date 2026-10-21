@@ -31,13 +31,13 @@ O nome cadastral do proprietário não transfere a titularidade do acesso. `owne
 4. Escolher o Durable Object daquela propriedade e confirmar internamente o ID vinculado.
 5. Validar o comando e executar a transação no armazenamento isolado.
 
-`/api/farm`, usuários, validação de registros e `/api/assistant/context` seguem essa fronteira. Cadastro/listagem das propriedades usa a identidade autenticada. `/api/auth/register` cria uma identidade e sua primeira propriedade, sem acesso implícito às existentes. O cadastro público usa os limites nativos de tentativas; não persiste senhas no cliente.
+`/api/farm`, usuários, validação de registros e `/api/assistant/context` seguem essa fronteira. Cadastro/listagem das propriedades usa a identidade autenticada. Somente o administrador geral provisiona uma propriedade e seu administrador local; `/api/auth/register` retorna 403.
 
 ## Preservação da Santo Expedito
 
 O ID e o nome interno do objeto legado continuam **`santo-expedito`**. Novos objetos usam `property:<uuid>`. Não há cópia para outro objeto, substituição do histórico ou mudança das proporções das rações.
 
-A vinculação legada é feita de forma idempotente: as contas existentes antes da alteração recebem apenas o vínculo da Santo Expedito, com os perfis anteriores. Contas criadas pelo novo cadastro têm marcador próprio e nunca entram nessa migração. A conta do segredo ADMIN_PASSWORD é proprietária da Santo Expedito, e não uma administradora global das fazendas alheias.
+A vinculação legada é feita de forma idempotente: as contas existentes antes da alteração recebem apenas o vínculo da Santo Expedito, com os perfis anteriores. Contas criadas pelo novo cadastro têm marcador próprio e nunca entram nessa migração. A conta do segredo ADMIN_PASSWORD é proprietária da Santo Expedito e administradora geral da plataforma.
 
 O vínculo do objeto e o perfil ficam em metadados persistentes. Snapshots antigos continuam legíveis; registros e estoque recebem o ID ao serem lidos e o mantêm nas próximas escritas/exports. Recibos idempotentes anteriores permanecem válidos. Backups identificados com outra propriedade são recusados. Backups antigos sem ID só podem inicializar a base legada; não viram dados de uma conta nova.
 
@@ -61,4 +61,10 @@ Não havia chat, conversas salvas ou integração com modelo de linguagem no pro
 
 Uma futura integração deve resolver a autorização pelo mesmo serviço, carregar dados somente do objeto ativo e armazenar conversas/mensagens com a identidade da propriedade. O ID informado pelo cliente ou por um modelo nunca substitui a verificação do vínculo.
 
-O domínio distribui armazenamento e processamento por propriedade, mas o diretório de identidade ainda é um único Durable Object. Há limites intencionais de 20 propriedades por conta e 50 vínculos por propriedade (incluindo proprietário); os limites do snapshot/estoque são por propriedade. Para operação SaaS em grande escala, evoluir identidade/recuperação de contas, índices, observabilidade e persistência paginada. Não há recuperação pública de senha por email nem convites a contas já existentes nesta etapa. Administradores não podem redefinir a senha global de uma identidade vinculada a várias propriedades.
+O domínio distribui armazenamento e processamento por propriedade, mas o diretório de identidade ainda é um único Durable Object. Há limite de 50 vínculos por propriedade (incluindo proprietário); os limites do snapshot/estoque são por propriedade. Para operação SaaS em grande escala, evoluir identidade/recuperação de contas, índices, observabilidade e persistência paginada. Não há recuperação pública de senha por email nem convites a contas já existentes nesta etapa. Administradores não podem redefinir a senha global de uma identidade vinculada a várias propriedades.
+
+## Administração geral e provisionamento restrito
+
+A identidade de bootstrap `ADMIN_USERNAME` é o administrador geral. O servidor confirma o nome canônico e a sessão de bootstrap; o campo `generalAdministrator` na resposta serve apenas à apresentação. Esse administrador lista e acessa as propriedades, e é o único autorizado a fazer POST `/api/properties`. O cadastro exige `administrator` (username, name e password de 15–128 caracteres), criando atomicamente identidade, propriedade e vínculo administrativo exclusivo. Nomes de usuário já existentes não são reaproveitados nem têm suas senhas sobrescritas. Senhas são derivadas no Durable Object e nunca fazem parte da definição da propriedade.
+
+POST `/api/auth/register` está desativado (403) e não há cadastro público na tela de login. Administradores locais mantêm as ferramentas e a gestão de usuários de sua propriedade; o papel `admin` local nunca concede provisionamento ou administração geral. Tentativas por API recebem 403 antes de criar dados. Dados e vínculos anteriores são preservados; esta alteração não transfere nem apaga propriedades existentes.

@@ -1,4 +1,4 @@
-import {propertyCreateSchema,propertyInputSchema,propertyIdSchema,registrationSchema} from '../security/property-schemas.js';
+import {propertyProvisionSchema,propertyInputSchema,propertyIdSchema} from '../security/property-schemas.js';
 import {LEGACY_PROPERTY_ID,assistantContext} from '../property-model.js';
 import {registryCall,farmCall,propertyAccess,propertiesFor,identity} from './property-service.js';
 import {feedActionSchema} from '../security/feed-schemas.js';
@@ -24,9 +24,7 @@ export default {async fetch(request,env){const url=new URL(request.url);
   const ip=await digest(request.headers.get('CF-Connecting-IP')||'unknown');
   await limited(env.API_LIMITER,'api:'+ip);
   if(method==='POST'||request.headers.has('Origin'))sameOrigin(request);
-  if(url.pathname==='/api/auth/register'){
-   await limited(env.LOGIN_LIMITER,'register-ip:'+ip);const registration=await readJSON(request,registrationSchema);await limited(env.LOGIN_ACCOUNT_LIMITER,'register:'+await digest(registration.username.toLowerCase()));const result=await registryCall(env,'/properties/register',{registration,rootUsername:env.ADMIN_USERNAME});if(!result.ok)throw new HttpError(result.status===409?409:result.status===400?400:503);return json({ok:true},201);
-  }
+  if(url.pathname==='/api/auth/register')throw new HttpError(403);
   if(url.pathname==='/api/auth/login'){
    // Native edge limits are shared across requests; no per-process JS counters or fail-open fallback.
    await limited(env.LOGIN_LIMITER,'login-ip:'+ip);
@@ -39,14 +37,14 @@ export default {async fetch(request,env){const url=new URL(request.url);
    const token=randomToken(),csrf=randomToken(),expiresAt=Date.now()+TTL*1000;
    const previous=readCookie(request);if(sessionTokenSchema.safeParse(previous).success){const old=await sessionCall(env,'/delete',{key:await digest(previous)});if(!old.ok)throw new HttpError(503)}
    const result=await sessionCall(env,'/create',{key:await digest(token),session:{...account,csrf,expiresAt}});if(!result.ok)throw new HttpError(503);
-   const properties=await propertiesFor(env,account);return json({user:account.username,role:properties[0]?.role||'operator',csrf,expiresAt,properties},200,{'Set-Cookie':sessionCookie(token,TTL)});
+   const properties=await propertiesFor(env,account);return json({user:account.username,generalAdministrator:identity(account,env).root,role:properties[0]?.role||'operator',csrf,expiresAt,properties},200,{'Set-Cookie':sessionCookie(token,TTL)});
   }
   const session=await currentSession(request,env);
-  if(url.pathname==='/api/auth/session'){const properties=await propertiesFor(env,session);return json({user:session.username,role:properties[0]?.role||'operator',csrf:session.csrf,expiresAt:session.expiresAt,properties})}
+  if(url.pathname==='/api/auth/session'){const properties=await propertiesFor(env,session);return json({user:session.username,generalAdministrator:identity(session,env).root,role:properties[0]?.role||'operator',csrf:session.csrf,expiresAt:session.expiresAt,properties})}
   if(url.pathname==='/api/auth/logout'){csrfCheck(request,session);await readJSON(request,emptySchema);await sessionCall(env,'/delete',{key:session.key});return json({ok:true},200,{'Set-Cookie':sessionCookie('',0)})}
   if(url.pathname==='/api/properties'){
    if(method==='GET')return json({properties:await propertiesFor(env,session)});
-   csrfCheck(request,session);const data=await readJSON(request,propertyCreateSchema),result=await registryCall(env,'/properties/create',{...identity(session,env),data});if(!result.ok)throw new HttpError([400,409].includes(result.status)?result.status:503);return json({properties:await propertiesFor(env,session)},201);
+   if(!identity(session,env).root)throw new HttpError(403);csrfCheck(request,session);const data=await readJSON(request,propertyProvisionSchema),result=await registryCall(env,'/properties/create',{...identity(session,env),data});if(!result.ok)throw new HttpError([400,409].includes(result.status)?result.status:503);return json({properties:await propertiesFor(env,session)},201);
   }
   // IDs from headers are selectors, never authority. Every domain route resolves a live membership.
   const requestedId=request.headers.get('X-Property-Id')||LEGACY_PROPERTY_ID;if(!propertyIdSchema.safeParse(requestedId).success)throw new HttpError(400);

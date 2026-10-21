@@ -7,3 +7,5 @@ export const propertyInputSchema=z.object({name:text(100).refine(s=>s.length>0),
 export const propertySchema=propertyInputSchema.extend({id:propertyIdSchema});
 export const propertyCreateSchema=z.object({id:z.uuid(),profile:propertyInputSchema,initialBirds:z.array(z.number().int().min(0).max(1000000)).length(5).default([0,0,0,0,0])}).strict();
 export const registrationSchema=z.object({username:z.string().min(1).max(64).regex(/^[A-Za-z0-9_.-]+$/),name:text(80).refine(s=>s.length>0),password:z.string().min(15).max(128),property:propertyCreateSchema}).strict();
+
+export const propertyProvisionSchema=propertyCreateSchema.extend({administrator:registrationSchema.omit({property:true})}).strict();
