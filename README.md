@@ -176,3 +176,15 @@ Abra **Relatórios** no menu (no celular, **Menu → Relatórios**), escolha Fin
 - **Imprimir / Salvar PDF:** abre a impressão do navegador; escolha salvar em PDF quando disponível. A impressão mostra somente o relatório, com tabelas e cores de leitura.
 
 Alterar filtros desabilita a exportação até gerar novamente. Sem abertura de estoque, o relatório orienta iniciar em Produção de ração; compras históricas não são tratadas como saldo físico. Não há estoque físico de medicamentos, ovos ou carcaças nesta etapa.
+
+### Análises gerenciais
+
+Em **Relatórios**, selecione também:
+
+- **Plantel e movimentações:** saldos estimados de abertura/fechamento, nascimentos, vendas de aves, mortalidade, transferências por galpão, plantel médio, aves-dia e curva de evolução. Transferências internas não aumentam nem reduzem o total de aves; vendas de ovos não são contadas como venda de aves.
+- **Curva ABC de despesas:** ranking por item e grupo, participação, percentual acumulado, classes A/B/C e gráfico de Pareto. A contém itens até cruzar 80% do gasto; B até cruzar 95%; C os restantes. O item que cruza um limite permanece na classe anterior. Núcleos de concentrações diferentes continuam separados. Gastos sem item são agrupados e identificados como sem detalhamento.
+- **Custos por ave e produtividade:** despesas por ave média, por ave-dia e por ave vendida, composição dos gastos, receita de aves por ave vendida, despesas por ovo/dúzia e ração baixada/pendente por fase.
+
+O financeiro também compara o período com o anterior de igual duração e apresenta margem sobre receitas registradas, variação das despesas e resultado por mês com lançamentos.
+
+Os custos unitários são **rateios das despesas lançadas**, não custo real de produção de cada lote/produto. Compras podem continuar em estoque; os mesmos gastos são apresentados com denominadores distintos e não devem ser somados entre si. A média do plantel é estimada pelos saldos de encerramento de cada dia, reconstruídos a partir do plantel atual e dos registros datados. Ela depende da qualidade do saldo inicial e do histórico, especialmente antes do cadastro ou com lançamentos retroativos. Referências incompletas e saldos negativos tornam os indicadores dependentes dessa média indisponíveis. Divisão por zero aparece como “Não disponível”, nunca como custo zero. Todas as análises oferecem CSV e impressão/PDF.
