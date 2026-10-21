@@ -52,3 +52,12 @@ test('only the general administrator provisions properties; public and local esc
  assert.equal((await call(env,'/api/users',{username:'EquipeLocal',name:'Equipe',role:'operator',password:crypto.randomUUID()},owner.auth,owner.property.id)).status,201);
  assert.equal((await call(env,'/api/properties/update',profile('Perfil editado'),owner.auth,owner.property.id)).status,200);
 });
+test('a root flag alone cannot elevate another username inside the property directory',async()=>{
+ const {env}=platformFixture(),owner=await register(env,'TenantAdmin','Propriedade exclusiva');
+ const stub=env.ADMIN_SESSIONS.get(env.ADMIN_SESSIONS.idFromName('admin-sessions'));
+ const internal=(path,body)=>stub.fetch(new Request('https://internal'+path,{method:'POST',body:JSON.stringify(body)}));
+ const actor={username:'TenantAdmin',root:true,rootUsername:'Talitom'};
+ const response=await internal('/properties/create',{...actor,data:{...creation('Bloqueada'),administrator:{username:'NoAccess',name:'Teste',password:crypto.randomUUID()}}});assert.equal(response.status,403);
+ const listed=await (await internal('/properties/list',actor)).json();assert.equal(listed.length,1);assert.equal(listed[0].property.id,owner.property.id);
+ assert.equal((await internal('/properties/access',{...actor,propertyId:LEGACY_PROPERTY_ID})).status,403);
+});
