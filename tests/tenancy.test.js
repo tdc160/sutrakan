@@ -130,3 +130,30 @@ test('operators and other tenants cannot manage sheds; stale state and zero slot
  assert.equal((await call(env,'/api/farm/sheds',{...command,revision:0},owner.auth,pid)).status,409);
  assert.equal((await call(env,'/api/farm/sheds',{id:crypto.randomUUID(),action:'delete',revision:1,shed:0,password:owner.password},owner.auth,pid)).status,400);
 });
+test('expense items belong to a property/group, remain idempotent and appear in saved expenses without changing formulas',async()=>{
+ const {env}=platformFixture(),owner=await register(env,'ItemsOwner','Itens'),other=await register(env,'OtherItems','Outra'),pid=owner.property.id;
+ const create=async(name,group)=>{const item={id:crypto.randomUUID(),name,group};const response=await call(env,'/api/farm/expense-items',item,owner.auth,pid);assert.equal(response.status,200);return item};
+ const medicine=await create('Vermífugo','Medicamentos'),feedItem=await create('Sorgo','Ração'),misc=await create('Manutenção','Outros');
+ assert.equal((await call(env,'/api/farm/expense-items',medicine,owner.auth,pid)).status,200);
+ assert.equal((await call(env,'/api/farm/expense-items',{...medicine,id:crypto.randomUUID(),name:'vermífugo'},owner.auth,pid)).status,409);
+ const expense=(item,category=item.group)=>({id:crypto.randomUUID(),type:'Despesa',category,qty:2,value:30,date:new Date().toLocaleDateString('en-CA',{timeZone:'America/Sao_Paulo'}),note:'Compra',expenseItemId:item.id,...(category==='Ração'?{ingredient:item.name}:{})});
+ let response=await call(env,'/api/farm/records',expense(medicine),owner.auth,pid);assert.equal(response.status,200);assert.equal((await response.json()).records.at(-1).expenseItemName,medicine.name);
+ assert.equal((await call(env,'/api/farm/records',expense(misc),owner.auth,pid)).status,200);
+ assert.equal((await call(env,'/api/farm/records',expense(medicine,'Outros'),owner.auth,pid)).status,409);
+ assert.equal((await call(env,'/api/farm/records',expense(medicine),other.auth,other.property.id)).status,409);
+ const prior=await (await call(env,'/api/farm',undefined,owner.auth,pid)).json();assert.equal((await call(env,'/api/farm/feed',{id:crypto.randomUUID(),action:'initialize',revision:prior.revision,ingredients:[],rations:[]},owner.auth,pid)).status,200);
+ const purchase=expense(feedItem);response=await call(env,'/api/farm/records',purchase,owner.auth,pid);assert.equal(response.status,200);let state=await response.json();assert.equal(state.records.at(-1).ingredient,'Sorgo');assert.equal(state.records.at(-1).expenseItemName,'Sorgo');assert.equal((await call(env,'/api/farm/records',purchase,owner.auth,pid)).status,200);
+ const {inventory,kg}=await import('../feed-inventory.js');assert.equal(kg(inventory(state).raw.get('Sorgo')),2);
+ assert.equal((await call(env,'/api/farm/feed',{id:crypto.randomUUID(),action:'adjust',target:'ingredient',ingredient:'Sorgo',deltaKg:-1,reason:'Consumo avulso'},owner.auth,pid)).status,200);
+ assert.equal((await call(env,'/api/farm/records',{...expense(feedItem),expenseItemId:undefined,ingredient:'Não cadastrado'},owner.auth,pid)).status,409);
+ const {backupSchema}=await import('../security/schemas.js');const {initialized,revision,...backup}=state;assert.equal(backupSchema.safeParse(backup).success,true);assert.equal(state.expenseItems.length,3);
+});
+test('only property administrators create expense items; operators can use them without managing the catalog',async()=>{
+ const {env}=platformFixture(),owner=await register(env,'CatalogAdmin','Catálogo'),pid=owner.property.id,user={username:'CatalogOperator',name:'Equipe',role:'operator',password:crypto.randomUUID()};await call(env,'/api/users',user,owner.auth,pid);const operator=await login(env,user.username,user.password),item={id:crypto.randomUUID(),name:'Ferramenta',group:'Outros'};
+ assert.equal((await call(env,'/api/farm/expense-items',item,operator,pid)).status,403);
+ assert.equal((await call(env,'/api/farm/expense-items',item,{cookie:owner.auth.cookie},pid)).status,403);
+ assert.equal((await call(env,'/api/farm/expense-items',{...item,group:'Venda'},owner.auth,pid)).status,400);
+ assert.equal((await call(env,'/api/farm/expense-items',item,owner.auth,pid)).status,200);
+ const response=await call(env,'/api/farm/records',{id:crypto.randomUUID(),type:'Despesa',category:'Outros',qty:1,value:10,date:new Date().toLocaleDateString('en-CA',{timeZone:'America/Sao_Paulo'}),note:'Equipe',expenseItemId:item.id},operator,pid);assert.equal(response.status,200);
+ assert.equal((await call(env,'/api/farm/records',{id:crypto.randomUUID(),type:'Despesa',category:'Outros',qty:1,value:10,date:new Date().toLocaleDateString('en-CA',{timeZone:'America/Sao_Paulo'}),note:'Equipe',expenseItemId:item.id,expenseItemName:'Falso'},operator,pid)).status,400);
+});

@@ -1,3 +1,4 @@
+import {expenseItemInputSchema} from '../security/expense-item-schemas.js';
 import {shedCommandSchema} from '../security/shed-schemas.js';
 import {propertyDeleteSchema,propertyProvisionSchema,propertyInputSchema,propertyIdSchema} from '../security/property-schemas.js';
 import {LEGACY_PROPERTY_ID,assistantContext} from '../property-model.js';
@@ -20,7 +21,7 @@ export default {async fetch(request,env){const url=new URL(request.url);
  try{
   // Reject unexpected query parameters; browser-supplied IP forwarding headers are never used.
   validateHeaders(request);if([...url.searchParams].length)throw new HttpError(400);
-  const known=['/api/auth/login','/api/auth/session','/api/auth/logout','/api/records/validate','/api/users','/api/users/update','/api/farm','/api/farm/records','/api/farm/import','/api/farm/feed','/api/farm/sheds','/api/auth/register','/api/properties','/api/properties/update','/api/properties/delete','/api/assistant/context'];if(!known.includes(url.pathname))throw new HttpError(404);
+  const known=['/api/auth/login','/api/auth/session','/api/auth/logout','/api/records/validate','/api/users','/api/users/update','/api/farm','/api/farm/records','/api/farm/import','/api/farm/feed','/api/farm/sheds','/api/farm/expense-items','/api/auth/register','/api/properties','/api/properties/update','/api/properties/delete','/api/assistant/context'];if(!known.includes(url.pathname))throw new HttpError(404);
   const method=request.method;if(!(['/api/users','/api/properties'].includes(url.pathname)?['GET','POST']:['/api/auth/session','/api/farm','/api/assistant/context'].includes(url.pathname)?['GET']:['POST']).includes(method))throw new HttpError(405);
   const ip=await digest(request.headers.get('CF-Connecting-IP')||'unknown');
   await limited(env.API_LIMITER,'api:'+ip);
@@ -56,6 +57,7 @@ export default {async fetch(request,env){const url=new URL(request.url);
   // IDs from headers are selectors, never authority. Every domain route resolves a live membership.
   const requestedId=request.headers.get('X-Property-Id')||LEGACY_PROPERTY_ID;if(!propertyIdSchema.safeParse(requestedId).success)throw new HttpError(400);
   const access=await propertyAccess(env,session,requestedId);session.role=access.role;
+  if(url.pathname==='/api/farm/expense-items'){if(access.role!=='admin')throw new HttpError(403);csrfCheck(request,session);const item=await readJSON(request,expenseItemInputSchema),result=await farmCall(env,access,'/expense-items',{item,username:session.username});if(!result.ok)throw new HttpError([400,409,413].includes(result.status)?result.status:503);return json(await result.json())}
   if(url.pathname==='/api/farm/sheds'){
    if(access.role!=='admin')throw new HttpError(403);csrfCheck(request,session);const command=await readJSON(request,shedCommandSchema);
    if(command.action==='delete'){
@@ -75,7 +77,7 @@ export default {async fetch(request,env){const url=new URL(request.url);
    if(method==='POST'){
     csrfCheck(request,session);
     if(url.pathname==='/api/farm/feed'){
-     const command=await readJSON(request,feedActionSchema);
+     const command=await readJSON(request,feedActionSchema,512*1024);
      // Operators can produce and reconcile due consumption; only admins configure opening stock/plans/adjustments.
      if(!['produce','settle'].includes(command.action)&&session.role!=='admin')throw new HttpError(403);
      path='/feed';payload={command,username:session.username};

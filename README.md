@@ -157,3 +157,11 @@ Em **Gerenciar propriedades**, Talitom pode usar **Excluir propriedade** e digit
 Em **Plantel e galpões → Gerenciar galpões**, administradores podem criar um galpão vazio, editar seu nome ou excluí-lo. Na exclusão, o sistema exige a senha do administrador responsável (proprietário da conta da propriedade). Se houver aves, é obrigatório escolher outro galpão ativo: a transferência de todo o plantel, seu registro no histórico e a exclusão são gravados juntos. Se não houver outro galpão, crie um antes. A posição **A distribuir** permanece e não pode ser excluída.
 
 O galpão excluído deixa de aparecer nas opções de novos registros e alimentação. O histórico anterior é preservado e seu identificador nunca é reutilizado. A ração da origem é encerrada após fechar os dias anteriores; o destino mantém sua própria configuração, que deve ser conferida. Senhas de confirmação não entram em rascunhos ou backups. O limite é de 200 posições de galpões por propriedade, incluindo posições excluídas para preservar as referências antigas.
+
+### Itens de despesa por propriedade
+
+Abra **Itens de despesa** no menu (no celular, **Menu → Itens de despesa**). Administradores cadastram o nome e escolhem **Ração**, **Medicamentos** ou **Outros**. O catálogo aceita até 500 itens personalizados por propriedade, evita nomes duplicados dentro do grupo e fica disponível a todos os usuários autorizados.
+
+Em **Novo registro → Despesa**, escolha o grupo e o item. Nos grupos Medicamentos/Outros é possível manter um lançamento sem detalhamento para compatibilidade. Em Ração, os ingredientes antigos e os novos itens ficam na mesma lista; o peso é em kg. Compras posteriores à abertura do estoque aumentam o saldo individual do ingrediente, e ajustes de consumo avulso continuam disponíveis em Produção de ração. Cadastrar um ingrediente não o inclui automaticamente nas quatro formulações. Medicamentos e Outros detalham despesas, sem criar controle de saldo físico desses grupos.
+
+O item e seu grupo acompanham o lançamento, os relatórios e os backups. O cadastro não altera despesas antigas e não cria uma despesa automaticamente. Nesta etapa, o catálogo oferece criação e consulta; nomes e grupos de itens já cadastrados permanecem estáveis.

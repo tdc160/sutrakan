@@ -1,3 +1,4 @@
+import {feedIngredientsFor} from './expense-items-model.js';
 import {shedNames,activeShed} from './shed-model.js';
 import {dailyGrams} from './property-model.js';
 import {feedDraftStore,registerFeedDraftCapture} from './feed-drafts.js';
@@ -11,11 +12,11 @@ const num=n=>n.toLocaleString('pt-BR',{maximumFractionDigits:3});
 const escape=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const phaseName=id=>recipes.find(r=>r.id===id)?.name||id;
 const date=s=>s.split('-').reverse().join('/');
-const stockItems=ingredients.flatMap(ingredient=>isNucleus(ingredient)?nucleusConcentrations.map(concentration=>({ingredient,concentration})):[{ingredient}]);
-const itemName=item=>item.ingredient+(isNucleus(item.ingredient)?` · ${item.concentration??'não informado'}%`:'');
+const stockItemsFor=state=>feedIngredientsFor(state).flatMap(ingredient=>isNucleus(ingredient)?nucleusConcentrations.map(concentration=>({ingredient,concentration})):[{ingredient}]);
+const itemName=item=>escape(item.ingredient+(isNucleus(item.ingredient)?` · ${item.concentration??'não informado'}%`:''));
 const options=property=>recipes.map(r=>`<option value="${r.id}">${r.name} · ${dailyGrams(property,r.id)} g/ave/dia</option>`).join('');
 export function feedStockAlert(state){const pending=state.feed?.daily.filter(e=>e.status!=='posted')||[];return pending.length?`<section class="feed-warning" role="status"><p>Há ${pending.length} baixa(s) de ração aguardando estoque.</p><button type="button" data-page="Produção de ração">Conferir estoque de ração</button></section>`:''}
-export function productionMarkup(state,revision){const feed=state.feed;
+export function productionMarkup(state,revision){const stockItems=stockItemsFor(state);const feed=state.feed;
  if(!feed)return `<section class="panel feed-control"><h2>Começar o controle de estoque</h2><p>Informe o que existe fisicamente hoje. Compras antigas podem já ter sido consumidas e não serão somadas novamente. Depois da abertura, novas despesas de ração passam a entrar no estoque automaticamente.</p>${isAdministrator()?`<form id="feed-opening" data-feed-form="opening"><input type="hidden" name="revision" value="${revision}"><details open><summary>Ingredientes disponíveis (kg)</summary><div class="feed-form-grid">${stockItems.map((item,i)=>`<label>${itemName(item)}<input name="stock-${i}" type="number" min="0" max="1000000" step="0.001" inputmode="decimal" value="0" required></label>`).join('')}</div></details><details open><summary>Ração já produzida e disponível (kg)</summary><div class="feed-form-grid">${recipes.map(r=>`<label>${r.name}<input name="ration-${r.id}" type="number" min="0" max="1000000" step="0.001" inputmode="decimal" value="0" required></label>`).join('')}</div></details><p class="feed-form-status" role="status"></p><button class="primary" type="submit">Confirmar saldos iniciais</button></form>`:'<p>Um administrador precisa informar os saldos iniciais para liberar a produção.</p>'}</section>`;
  const balances=inventory(state),forecast=dailyForecast(state),pending=feed.daily.filter(e=>e.status!=='posted'),totals=recipes.map(r=>({recipe:r,stock:kg(balances.rations.get(r.id)||0),daily:forecast.filter(p=>p.recipe===r.id).reduce((n,p)=>n+p.kg,0)}));
  return `<div class="feed-control"><section class="panel"><h2>Ração pronta no estoque</h2><div class="feed-stock-cards">${totals.map(({recipe:r,stock,daily})=>`<article><span>${r.name}</span><strong>${num(stock)} kg</strong><p>${num(daily)} kg/dia previstos</p><small>${daily?`Autonomia estimada: ${num(stock/daily)} dias`:'Defina a ração de cada galpão para calcular o consumo.'}</small></article>`).join('')}</div><p>O consumo é fechado automaticamente às <b>00h10, horário de Brasília</b>, referente ao dia anterior. Usa a ração e o plantel do galpão ao encerrar o dia; não é uma medição do que foi efetivamente comido.</p>${pending.length?`<p class="feed-warning" role="status">${pending.length} baixa(s) pendente(s). Quantidade aguardando estoque: ${num(pending.reduce((n,p)=>n+p.kg,0))} kg. Nenhum saldo foi deixado negativo.</p>`:''}<button type="button" id="feed-settle">Conferir baixas até ontem</button><p class="feed-action-status" role="status"></p></section>
@@ -28,7 +29,7 @@ export function productionMarkup(state,revision){const feed=state.feed;
  <section class="panel"><details><summary>Baixas diárias (${feed.daily.length})</summary>${feed.daily.length?feed.daily.slice().sort((a,b)=>b.day.localeCompare(a.day)).slice(0,100).map(event=>`<article class="feed-history"><h3>${date(event.day)} · ${escape(event.name)}</h3><p>${phaseName(event.recipe)} · ${event.birds} aves × ${event.grams} g = ${num(event.kg)} kg · <b>${event.status==='posted'?'Baixado':'Pendente'}</b></p>${event.reason?`<p>${escape(event.reason)}</p>`:''}</article>`).join(''):'<p>As baixas aparecem após o primeiro fechamento diário.</p>'}<p class="muted">Últimas 100 baixas. O backup inclui o histórico completo.</p></details></section></div>`;
 }
 const draftData=()=>feedDraftStore.read();
-export function bindProduction(state,onSaved){registerFeedDraftCapture(null);const captures=[];const root=document.querySelector('.feed-control');if(!root)return;
+export function bindProduction(state,onSaved){const stockItems=stockItemsFor(state);registerFeedDraftCapture(null);const captures=[];const root=document.querySelector('.feed-control');if(!root)return;
  const save=async(command)=>{if(!navigator.onLine)throw Error('Sem conexão. O preenchimento está guardado neste aparelho. Reconecte-se para confirmar.');const result=await accountRequest('/api/farm/feed',command);if(hasActiveSession())onSaved(result)};
  const drafts=draftData();
  root.querySelectorAll('[data-feed-form]').forEach(form=>{
@@ -42,7 +43,7 @@ export function bindProduction(state,onSaved){registerFeedDraftCapture(null);con
   captures.push(()=>form.dataset.dirty==='true'&&!form.hasAttribute('aria-busy')?captureSafely():true);
   form.addEventListener('input',captureSafely);form.addEventListener('change',captureSafely);
   form.onsubmit=async event=>{event.preventDefault();const button=form.querySelector('[type=submit]');if(button.disabled)return;const data=new FormData(form);let command={id:form.dataset.operationId,action:name};
-   if(name==='opening')command={...command,action:'initialize',revision:Number(data.get('revision')),ingredients:stockItems.map((item,i)=>({...item,kg:Number(data.get('stock-'+i))})),rations:recipes.map(r=>({recipe:r.id,kg:Number(data.get('ration-'+r.id))}))};
+   if(name==='opening')command={...command,action:'initialize',revision:Number(data.get('revision')),ingredients:stockItems.map((item,i)=>({...item,kg:Number(data.get('stock-'+i))})).filter(item=>item.kg>0),rations:recipes.map(r=>({recipe:r.id,kg:Number(data.get('ration-'+r.id))}))};
    if(name==='produce')command={...command,recipe:data.get('recipe'),cornKg:Number(data.get('cornKg')),concentration:Number(data.get('concentration'))};
    if(name==='plan'){const shed=Number(data.get('shed'));command={...command,plan:{id:data.get('planId'),name:shedNames(state)[shed],shed,recipe:data.get('recipe'),mode:'shed'}}}
    if(name==='adjust')command={...command,target:data.get('target'),...(data.get('target')==='ingredient'?stockItems[Number(data.get('item'))]:{recipe:data.get('recipe')}),deltaKg:Number(data.get('deltaKg')),reason:String(data.get('reason')).trim()};
