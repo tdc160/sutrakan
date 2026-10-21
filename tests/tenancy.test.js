@@ -61,3 +61,44 @@ test('a root flag alone cannot elevate another username inside the property dire
  const listed=await (await internal('/properties/list',actor)).json();assert.equal(listed.length,1);assert.equal(listed[0].property.id,owner.property.id);
  assert.equal((await internal('/properties/access',{...actor,propertyId:LEGACY_PROPERTY_ID})).status,403);
 });
+test('only general administrator deletes a property; revocation, purge and retry preserve other farms',async()=>{
+ const {env,data,farms}=platformFixture(),root=await login(env),owner=await register(env,'DeleteOwner','Excluir'),other=await register(env,'KeepOwner','Manter'),id=owner.property.id;
+ await call(env,'/api/farm/records',record(),owner.auth,id);
+ const deletion={propertyId:id,confirmation:id};
+ assert.equal((await call(env,'/api/properties/delete',deletion,owner.auth)).status,403);
+ assert.equal((await call(env,'/api/properties/delete',deletion,{cookie:root.cookie})).status,403);
+ assert.equal((await call(env,'/api/properties/delete',{...deletion,confirmation:other.property.id},root)).status,400);
+ assert.equal((await call(env,'/api/properties/delete',deletion,root)).status,200);
+ assert.equal(data.get('member:deleteowner:'+id),undefined);assert.equal(data.get('user:deleteowner').active,false);
+ const fixture=farms.get('property:'+id);assert.equal(await fixture.ctx.storage.get('meta'),undefined);assert.equal(await fixture.ctx.storage.get('profile'),undefined);assert.equal(await fixture.ctx.storage.get('chunk:0'),undefined);assert.equal(await fixture.ctx.storage.getAlarm(),null);
+ await fixture.object.alarm();assert.equal(await fixture.ctx.storage.get('meta'),undefined);
+ assert.equal((await fixture.object.fetch(new Request('https://internal/read',{method:'POST',body:JSON.stringify({propertyId:id,initialProperty:{...owner.property.profile,id}})}))).status,410);
+ assert.equal((await call(env,'/api/farm',undefined,owner.auth,id)).status,401);
+ assert.equal((await call(env,'/api/farm',undefined,root,id)).status,403);
+ const listed=await (await call(env,'/api/properties',undefined,root)).json();assert.equal(listed.properties.some(p=>p.property.id===id),false);
+ assert.equal((await call(env,'/api/farm',undefined,other.auth,other.property.id)).status,200);
+ assert.equal((await call(env,'/api/properties/delete',deletion,root)).status,200);
+});
+test('eight-character credentials are accepted, seven rejected for property and user creation',async()=>{
+ const {env}=platformFixture(),root=await login(env),property=creation('Senha curta');
+ const administrator={username:'EightChars',name:'Administrador',password:'Abcd123!'};
+ assert.equal((await call(env,'/api/properties',{...property,administrator:{...administrator,password:'Abcd12!'}},root)).status,400);
+ assert.equal((await call(env,'/api/properties',{...property,administrator},root)).status,201);
+ const local=await login(env,administrator.username,administrator.password);
+ assert.equal((await call(env,'/api/users',{username:'Worker8',name:'Operador',role:'operator',password:'Abcd123!'},local,property.id)).status,201);
+ assert.equal((await call(env,'/api/users',{username:'Worker7',name:'Operador',role:'operator',password:'Abcd12!'},local,property.id)).status,400);
+});
+test('interrupted purge stays visible to general administrator and retry completes safely',async()=>{
+ const {env,farms}=platformFixture(),root=await login(env),owner=await register(env,'PurgeRetry','Retentativa'),id=owner.property.id,fixture=farms.get('property:'+id),deletion={propertyId:id,confirmation:id};
+ fixture.setFail(true);assert.equal((await call(env,'/api/properties/delete',deletion,root)).status,500);
+ const pending=await (await call(env,'/api/properties',undefined,root)).json();assert.equal(pending.properties.find(p=>p.property.id===id).deletionPending,true);
+ fixture.setFail(false);assert.equal((await call(env,'/api/properties/delete',deletion,root)).status,200);
+ const completed=await (await call(env,'/api/properties',undefined,root)).json();assert.equal(completed.properties.some(p=>p.property.id===id),false);
+});
+test('deleting the legacy farm does not recreate it or prevent general administrator login',async()=>{
+ const {env}=platformFixture(),root=await login(env),deletion={propertyId:LEGACY_PROPERTY_ID,confirmation:LEGACY_PROPERTY_ID};
+ assert.equal((await call(env,'/api/properties/delete',deletion,root)).status,200);
+ const session=await login(env);assert.equal(session.data.generalAdministrator,true);assert.deepEqual(session.data.properties,[]);
+ const pending=[];await worker.scheduled({},env,{waitUntil(promise){pending.push(promise)}});await Promise.all(pending);
+ assert.equal((await call(env,'/api/farm',undefined,session)).status,403);
+});

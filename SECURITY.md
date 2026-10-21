@@ -43,7 +43,7 @@ Mutações exigem a origem exata da requisição e rejeitam `Sec-Fetch-Site` inc
 
 ## Validação e escape
 
-`security/schemas.js` define campos permitidos, tipos exatos sem coerção, enums de tipo/categoria/ingrediente, limites de strings, datas reais não futuras, quantidades e valores finitos, e regras entre os campos. Exemplos: observações de até 500 caracteres; usuário até 64; senha entre 8 e 128; galpões de 0 a 4; núcleos somente 3%, 4% ou 5%. Para nova senha, prefira uma frase longa e única, de pelo menos 15 caracteres. Campos não declarados são rejeitados. O JIT do Zod é desativado para não exigir unsafe-eval no navegador.
+`security/schemas.js` define campos permitidos, tipos exatos sem coerção, enums de tipo/categoria/ingrediente, limites de strings, datas reais não futuras, quantidades e valores finitos, e regras entre os campos. Exemplos: observações de até 500 caracteres; usuário até 64; senha entre 8 e 128; galpões de 0 a 4; núcleos somente 3%, 4% ou 5%. Para nova senha, prefira uma frase longa e única, de pelo menos 8 caracteres. Campos não declarados são rejeitados. O JIT do Zod é desativado para não exigir unsafe-eval no navegador.
 
 A API limita o corpo a 16 KiB de bytes realmente lidos, mesmo quando Content-Length é falso; exclusivamente a importação inicial administrativa permite até 10 MiB. Aceita apenas JSON UTF-8, rejeita JSON malformado, parâmetros de query não previstos e headers com controles ou tamanhos excessivos (4 KiB por valor, 16 KiB no total). Backups locais têm limite de 10 MiB e schema de raiz e registros; compras antigas podem não ter ingrediente/concentração, sem atribuição automática.
 
@@ -71,7 +71,7 @@ Testes automatizados cobrem limites, coerção, autenticação, expiração, rev
 
 ## Cadastro de usuários
 
-Em **Usuários → Cadastrar usuário**, administradores informam nome, identificador, perfil e senha de 15–128 caracteres. Operadores têm as funções existentes de consulta e registro, sem API de administração de contas; essa permissão é verificada no Worker. Dados da criação são centralizados e compartilhados somente entre os usuários autorizados da propriedade selecionada. A permissão de operador permite consulta e criação de lançamentos, incluindo financeiros; somente administradores inicializam a base. Não há restrição por galpão ou por autor.
+Em **Usuários → Cadastrar usuário**, administradores informam nome, identificador, perfil e senha de 8–128 caracteres. Operadores têm as funções existentes de consulta e registro, sem API de administração de contas; essa permissão é verificada no Worker. Dados da criação são centralizados e compartilhados somente entre os usuários autorizados da propriedade selecionada. A permissão de operador permite consulta e criação de lançamentos, incluindo financeiros; somente administradores inicializam a base. Não há restrição por galpão ou por autor.
 
 Contas adicionais persistem no Durable Object existente, em chaves `user:` separadas de `session:`. Limite de 50 contas adicionais, identificadores únicos sem distinção de maiúsculas. O administrador principal não pode ser recriado, desativado ou rebaixado, e continua recuperável pelo segredo ADMIN_PASSWORD. Administradores adicionais não alteram o próprio acesso; outro administrador pode redefinir sua senha. Não há recuperação pública por email.
 

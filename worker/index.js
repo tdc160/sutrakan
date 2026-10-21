@@ -1,4 +1,4 @@
-import {propertyProvisionSchema,propertyInputSchema,propertyIdSchema} from '../security/property-schemas.js';
+import {propertyDeleteSchema,propertyProvisionSchema,propertyInputSchema,propertyIdSchema} from '../security/property-schemas.js';
 import {LEGACY_PROPERTY_ID,assistantContext} from '../property-model.js';
 import {registryCall,farmCall,propertyAccess,propertiesFor,identity} from './property-service.js';
 import {feedActionSchema} from '../security/feed-schemas.js';
@@ -19,7 +19,7 @@ export default {async fetch(request,env){const url=new URL(request.url);
  try{
   // Reject unexpected query parameters; browser-supplied IP forwarding headers are never used.
   validateHeaders(request);if([...url.searchParams].length)throw new HttpError(400);
-  const known=['/api/auth/login','/api/auth/session','/api/auth/logout','/api/records/validate','/api/users','/api/users/update','/api/farm','/api/farm/records','/api/farm/import','/api/farm/feed','/api/auth/register','/api/properties','/api/properties/update','/api/assistant/context'];if(!known.includes(url.pathname))throw new HttpError(404);
+  const known=['/api/auth/login','/api/auth/session','/api/auth/logout','/api/records/validate','/api/users','/api/users/update','/api/farm','/api/farm/records','/api/farm/import','/api/farm/feed','/api/auth/register','/api/properties','/api/properties/update','/api/properties/delete','/api/assistant/context'];if(!known.includes(url.pathname))throw new HttpError(404);
   const method=request.method;if(!(['/api/users','/api/properties'].includes(url.pathname)?['GET','POST']:['/api/auth/session','/api/farm','/api/assistant/context'].includes(url.pathname)?['GET']:['POST']).includes(method))throw new HttpError(405);
   const ip=await digest(request.headers.get('CF-Connecting-IP')||'unknown');
   await limited(env.API_LIMITER,'api:'+ip);
@@ -42,6 +42,12 @@ export default {async fetch(request,env){const url=new URL(request.url);
   const session=await currentSession(request,env);
   if(url.pathname==='/api/auth/session'){const properties=await propertiesFor(env,session);return json({user:session.username,generalAdministrator:identity(session,env).root,role:properties[0]?.role||'operator',csrf:session.csrf,expiresAt:session.expiresAt,properties})}
   if(url.pathname==='/api/auth/logout'){csrfCheck(request,session);await readJSON(request,emptySchema);await sessionCall(env,'/delete',{key:session.key});return json({ok:true},200,{'Set-Cookie':sessionCookie('',0)})}
+  if(url.pathname==='/api/properties/delete'){
+   if(!identity(session,env).root)throw new HttpError(403);csrfCheck(request,session);
+   const data=await readJSON(request,propertyDeleteSchema),result=await registryCall(env,'/properties/delete',{...identity(session,env),data});if(!result.ok)throw new HttpError([400,403,404].includes(result.status)?result.status:503);
+   const purge=await farmCall(env,await result.json(),'/delete');if(!purge.ok)throw new HttpError(503);const completed=await registryCall(env,'/properties/delete-complete',{...identity(session,env),data});if(!completed.ok)throw new HttpError(503);
+   return json({properties:await propertiesFor(env,session)});
+  }
   if(url.pathname==='/api/properties'){
    if(method==='GET')return json({properties:await propertiesFor(env,session)});
    if(!identity(session,env).root)throw new HttpError(403);csrfCheck(request,session);const data=await readJSON(request,propertyProvisionSchema),result=await registryCall(env,'/properties/create',{...identity(session,env),data});if(!result.ok)throw new HttpError([400,409].includes(result.status)?result.status:503);return json({properties:await propertiesFor(env,session)},201);
@@ -99,5 +105,5 @@ export default {async fetch(request,env){const url=new URL(request.url);
  }
 },async scheduled(controller,env,ctx){
  // Cloudflare Cron runs independently of open browsers. All debits are serialized/idempotent in FarmStore.
- const task=(async()=>{if(!env.FARM_STORE?.idFromName)throw Error('Missing farm binding');const response=await env.FARM_STORE.get(env.FARM_STORE.idFromName('santo-expedito')).fetch(new Request('https://internal/feed-settle',{method:'POST',body:'{}'}));if(!response.ok&&response.status!==409)throw Error('Daily feed settlement failed')})();ctx.waitUntil(task);
+ const task=(async()=>{if(!env.FARM_STORE?.idFromName)throw Error('Missing farm binding');const response=await env.FARM_STORE.get(env.FARM_STORE.idFromName('santo-expedito')).fetch(new Request('https://internal/feed-settle',{method:'POST',body:'{}'}));if(!response.ok&&![409,410].includes(response.status))throw Error('Daily feed settlement failed')})();ctx.waitUntil(task);
 }};

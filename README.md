@@ -108,7 +108,7 @@ O endereço definitivo aparece no painel Cloudflare após o deploy. A configura�
 
 ### Usuários
 
-Entre como Talitom e abra **Usuários** (no celular, **Menu → Usuários**). Em **Cadastrar usuário**, preencha nome, usuário, perfil e senha com pelo menos 15 caracteres. Administradores também podem desativar/reativar contas, alterar perfil e redefinir senhas. Cada atualização encerra as sessões anteriores dessa pessoa nos próximos acessos online. A conta Talitom é protegida e mantém a senha configurada no Cloudflare. Contas persistem no servidor; os registros são compartilhados entre os aparelhos autorizados da mesma propriedade.
+Entre como Talitom e abra **Usuários** (no celular, **Menu → Usuários**). Em **Cadastrar usuário**, preencha nome, usuário, perfil e senha com pelo menos 8 caracteres. Administradores também podem desativar/reativar contas, alterar perfil e redefinir senhas. Cada atualização encerra as sessões anteriores dessa pessoa nos próximos acessos online. A conta Talitom é protegida e mantém a senha configurada no Cloudflare. Contas persistem no servidor; os registros são compartilhados entre os aparelhos autorizados da mesma propriedade.
 
 ### Primeira importação central
 
@@ -149,3 +149,5 @@ A plataforma agora separa as propriedades por ID e verifica o vínculo do usuár
 - A Santo Expedito mantém seus dados e contas no objeto original. Não é necessário reimportar uma base já centralizada ou cadastrar novamente os usuários existentes.
 
 Não havia chat no código. A API `/api/assistant/context` prepara o contexto autorizado para uma futura integração, sem chamar serviço externo de IA. Os módulos atuais continuam voltados à avicultura; o tipo de produção cadastral não converte automaticamente as fórmulas para outras espécies.
+
+Em **Gerenciar propriedades**, Talitom pode usar **Excluir propriedade** e digitar o nome para confirmar. A ação apaga os registros e estoques centrais e revoga os acessos daquela propriedade; baixe um backup antes se precisar. Cópias e rascunhos já guardados nos aparelhos permanecem. A exclusão não está disponível para administradores locais. Senhas de cadastro e redefinição aceitam de 8 a 128 caracteres.
